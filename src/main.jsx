@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
+console.info('FloodGuard client boot 2026-06-03-a')
+
 class AppErrorBoundary extends Component {
   constructor(props) {
     super(props)

@@ -578,14 +578,16 @@ app.put('/api/notifications/:id/read', (req, res) => {
 // Serve the production React build from the same domain as the API.
 if (fs.existsSync(DIST_DIR)) {
   app.use('/assets', express.static(path.join(DIST_DIR, 'assets'), {
-    immutable: true,
     index: false,
-    maxAge: '1y',
+    maxAge: 0,
+    setHeaders(res) {
+      res.setHeader('Cache-Control', 'no-store');
+    },
   }));
 
   app.use(express.static(DIST_DIR, {
     index: false,
-    maxAge: '1h',
+    maxAge: 0,
     setHeaders(res, filePath) {
       if (filePath.endsWith('index.html')) {
         res.setHeader('Cache-Control', 'no-store');
