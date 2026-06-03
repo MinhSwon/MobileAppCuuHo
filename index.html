@@ -12,6 +12,29 @@
         Đang tải ứng dụng...
       </div>
     </div>
+    <script>
+      window.__showStartupError = function (message) {
+        var root = document.getElementById('root');
+        if (!root) return;
+        root.innerHTML = '<div style="font-family:Arial,sans-serif;padding:32px;color:#991b1b">' +
+          '<h1 style="font-size:24px;margin-bottom:12px">Ứng dụng chưa khởi động được</h1>' +
+          '<pre style="white-space:pre-wrap">' + String(message) + '</pre>' +
+          '</div>';
+      };
+      window.addEventListener('error', function (event) {
+        window.__showStartupError(event.message || 'Không tải được JavaScript bundle.');
+      });
+      window.addEventListener('unhandledrejection', function (event) {
+        var reason = event.reason;
+        window.__showStartupError(reason && reason.message ? reason.message : reason);
+      });
+      setTimeout(function () {
+        var root = document.getElementById('root');
+        if (root && root.textContent.indexOf('Đang tải ứng dụng') !== -1) {
+          window.__showStartupError('JavaScript bundle không chạy. Hãy kiểm tra file /assets/*.js trong Network tab hoặc console lỗi trình duyệt.');
+        }
+      }, 5000);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

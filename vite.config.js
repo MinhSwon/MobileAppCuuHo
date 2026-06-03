@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    target: 'es2017',
+  },
   server: {
     watch: {
       ignored: ['**/db.json']
