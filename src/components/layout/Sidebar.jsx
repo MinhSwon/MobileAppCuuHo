@@ -21,7 +21,7 @@ const adminNavSections = [
     items: [
       { to: '/admin/alerts', icon: BellRing, label: 'Quản lý cảnh báo' },
       { to: '/admin/sms', icon: MessageSquare, label: 'SMS cảnh báo' },
-      { to: '/admin/coastal', icon: Anchor, label: 'Cảnh báo ven biển & Sạt lở' },
+      { to: '/admin/coastal', icon: Anchor, label: 'Cảnh báo thiên tai & sự cố' },
     ],
   },
   {
@@ -113,7 +113,7 @@ function BrandMark() {
   return (
     <img
       src="/logo.svg"
-      alt="Cong thong tin cuu ho ngap lu"
+      alt="Ứng dụng cứu hộ Việt Nam"
       className="brand-logo-image compact"
     />
   );
@@ -134,8 +134,8 @@ export function AdminSidebar({ isOpen, onClose }) {
         <div className="sidebar-logo">
           <BrandMark />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="sidebar-logo-title">CUU HO NGAP LU</div>
-            <div className="sidebar-logo-subtitle">Cong thong tin</div>
+            <div className="sidebar-logo-title">CUU HO VIET NAM</div>
+            <div className="sidebar-logo-subtitle">Ung dung toan quoc</div>
           </div>
           <button onClick={onClose} style={{ color: '#6b6360', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
             <X size={16} />
@@ -202,7 +202,7 @@ export function RescueSidebar({ isOpen, onClose }) {
   const navItems = [
     { to: '/rescue', icon: LayoutDashboard, label: 'Dashboard cứu hộ', end: true },
     { to: '/rescue/missions', icon: Shield, label: 'Nhiệm vụ được giao' },
-    { to: '/rescue/warnings', icon: Bell, label: 'Cảnh báo lũ' },
+    { to: '/rescue/warnings', icon: Bell, label: 'Cảnh báo khẩn cấp' },
   ];
 
   return (
@@ -213,7 +213,7 @@ export function RescueSidebar({ isOpen, onClose }) {
           <BrandMark />
           <div style={{ flex: 1 }}>
             <div className="sidebar-logo-title">DOI CUU HO</div>
-            <div className="sidebar-logo-subtitle">Cuu ho ngap lu</div>
+            <div className="sidebar-logo-subtitle">Nhiem vu toan quoc</div>
           </div>
         </div>
 
@@ -247,7 +247,7 @@ export function CitizenSidebar({ isOpen, onClose }) {
   const navItems = [
     { to: '/citizen', icon: LayoutDashboard, label: 'Trang chủ', end: true },
     { to: '/citizen/request', icon: AlertTriangle, label: 'Gửi yêu cầu cứu hộ' },
-    { to: '/citizen/warnings', icon: Bell, label: 'Cảnh báo lũ' },
+    { to: '/citizen/warnings', icon: Bell, label: 'Cảnh báo khẩn cấp' },
     { to: '/citizen/safezones', icon: Building2, label: 'Điểm sơ tán' },
   ];
 
@@ -258,7 +258,7 @@ export function CitizenSidebar({ isOpen, onClose }) {
         <div className="sidebar-logo">
           <BrandMark />
           <div style={{ flex: 1 }}>
-            <div className="sidebar-logo-title">CUU HO NGAP LU</div>
+            <div className="sidebar-logo-title">CUU HO VIET NAM</div>
             <div className="sidebar-logo-subtitle">Cong nguoi dan</div>
           </div>
         </div>

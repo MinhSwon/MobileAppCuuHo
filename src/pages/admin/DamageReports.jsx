@@ -40,7 +40,7 @@ export default function DamageReports() {
     const area = AREAS.find(a => a.id === form.area_id);
     createDamageReport({
       ...form,
-      area_name: area?.old_name || 'Hương Khê',
+      area_name: area?.old_name || 'Việt Nam',
       reporter_id: currentUser?.id,
       reporter_name: currentUser?.full_name || form.reporter_name || 'Ẩn danh',
     });
@@ -84,7 +84,7 @@ export default function DamageReports() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Báo cáo thiệt hại thiên tai</h1>
-          <p className="page-subtitle">Ghi nhận và tổng hợp số liệu thiệt hại định lượng của toàn huyện Hương Khê</p>
+          <p className="page-subtitle">Ghi nhận và tổng hợp số liệu thiệt hại định lượng trên toàn Việt Nam</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           <Plus size={16} /> Thêm báo cáo thiệt hại

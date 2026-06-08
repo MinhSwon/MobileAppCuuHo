@@ -50,7 +50,7 @@ export default function CoastalWarnings() {
       content: `${form.content} ${form.vessels_count ? `(Số phương tiện/tàu thuyền bị ảnh hưởng dự kiến: ${form.vessels_count}).` : ''}`,
       level: form.level,
       area_id: form.area_id,
-      area_name: area?.old_name || 'Hương Khê',
+      area_name: area?.old_name || 'Việt Nam',
       start_time: startTime,
       end_time: endTime,
       status: 'PUBLISHED',
@@ -75,9 +75,9 @@ export default function CoastalWarnings() {
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-            <Anchor size={22} color="var(--accent)" /> Cảnh báo sạt lở & Ven biển
+            <Anchor size={22} color="var(--accent)" /> Cảnh báo thiên tai & sự cố
           </h1>
-          <p className="page-subtitle">Giám sát và phát hành cảnh báo nguy cơ sạt lở núi, lũ quét và tàu thuyền ven biển Hà Tĩnh</p>
+          <p className="page-subtitle">Giám sát và phát hành cảnh báo nguy cơ thiên tai, sạt lở, ven biển và sự cố khẩn cấp tại Việt Nam</p>
         </div>
       </div>
 
@@ -124,7 +124,7 @@ export default function CoastalWarnings() {
               <input
                 type="text"
                 className="form-input"
-                placeholder={form.alert_type === 'LANDSLIDE' ? 'Ví dụ: Nguy cơ sạt lở đồi dốc xã Hà Linh' : 'Ví dụ: Cấm biển, neo đậu thuyền bè phòng bão'}
+                placeholder={form.alert_type === 'LANDSLIDE' ? 'Ví dụ: Nguy cơ sạt lở đồi dốc xã Đà Nẵng' : 'Ví dụ: Cấm biển, neo đậu thuyền bè phòng bão'}
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 required

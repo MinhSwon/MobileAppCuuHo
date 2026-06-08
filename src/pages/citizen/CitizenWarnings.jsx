@@ -10,7 +10,7 @@ export default function CitizenWarnings() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title"><Bell size={22} color="#f59e0b" /> Cảnh báo lũ lụt</h1><p className="page-subtitle">Thông tin cảnh báo lũ khu vực Hương Khê</p></div>
+        <div><h1 className="page-title"><Bell size={22} color="#f59e0b" /> Cảnh báo khẩn cấp</h1><p className="page-subtitle">Thông tin cảnh báo khẩn cấp khu vực toàn quốc</p></div>
       </div>
 
       {active.length > 0 && (

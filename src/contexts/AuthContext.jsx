@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback } from 'react';
 import axios from 'axios';
 
@@ -13,6 +14,7 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
+
   const [currentProfile, setCurrentProfile] = useState(() => {
     const saved = localStorage.getItem('currentProfile');
     try {

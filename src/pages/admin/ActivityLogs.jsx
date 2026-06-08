@@ -2,7 +2,7 @@
 import { Activity } from 'lucide-react';
 
 const ACTION_ICONS = {
-  'Tạo cảnh báo lũ': '🔔',
+  'Tạo cảnh báo khẩn cấp': '🔔',
   'Cập nhật cảnh báo': '✏️',
   'Công bố cảnh báo': '📢',
   'Gửi SMS cảnh báo': '📱',

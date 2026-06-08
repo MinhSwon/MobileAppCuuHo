@@ -1,0 +1,34 @@
+{
+  "name": "Ứng dụng cứu hộ Việt Nam",
+  "short_name": "Cứu hộ VN",
+  "description": "Cảnh báo khẩn cấp, gửi SOS GPS và điều phối cứu hộ trên toàn Việt Nam.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f1eb",
+  "theme_color": "#a04040",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Gửi SOS",
+      "short_name": "SOS",
+      "description": "Mở nhanh màn hình gửi yêu cầu cứu hộ khẩn cấp.",
+      "url": "/sos",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

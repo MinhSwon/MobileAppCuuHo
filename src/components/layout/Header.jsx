@@ -25,7 +25,7 @@ export function AdminHeader({ onMenuClick }) {
         </button>
         {/* Breadcrumb placeholder */}
         <div style={{ fontSize: '0.72rem', color: '#b8afa5', letterSpacing: '0.04em', fontWeight: 500 }}>
-          Ban chỉ huy PCTT Hương Khê
+          Trung tâm điều phối cứu hộ Việt Nam
         </div>
       </div>
 

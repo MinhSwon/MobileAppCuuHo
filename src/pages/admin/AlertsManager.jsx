@@ -27,7 +27,7 @@ function WarningForm({ initial, onSave, onClose }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
         <div style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Tiêu đề cảnh báo *</label>
-          <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required placeholder="VD: Cảnh báo lũ khẩn cấp tại Hà Linh" />
+          <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required placeholder="VD: Cảnh báo khẩn cấp khẩn cấp tại Đà Nẵng" />
         </div>
         <div>
           <label className="form-label">Khu vực ảnh hưởng *</label>
@@ -52,7 +52,7 @@ function WarningForm({ initial, onSave, onClose }) {
         </div>
         <div style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Nội dung cảnh báo *</label>
-          <textarea className="form-input" rows={4} value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} required placeholder="Mô tả tình trạng lũ lụt và hướng dẫn cho người dân..." style={{ resize: 'vertical' }} />
+          <textarea className="form-input" rows={4} value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} required placeholder="Mô tả tình trạng khẩn cấp và hướng dẫn cho người dân..." style={{ resize: 'vertical' }} />
         </div>
         <div>
           <label className="form-label">Trạng thái</label>
@@ -118,7 +118,7 @@ export default function AlertsManager() {
     mockPhones.forEach(phone => {
       addSmsLog({
         phone,
-        message: `CANH BAO LU [${w.level}]: ${w.title.substring(0, 60)}. Khu vuc: ${w.area_name}. Thoi gian: ${new Date(w.start_time).toLocaleString('vi-VN')}`,
+        message: `CANH BAO KHAN CAP [${w.level}]: ${w.title.substring(0, 60)}. Khu vuc: ${w.area_name}. Thoi gian: ${new Date(w.start_time).toLocaleString('vi-VN')}`,
         provider: 'Viettel SMS',
         status: Math.random() > 0.1 ? 'SENT' : 'FAILED',
         cost: 500,
@@ -142,8 +142,8 @@ export default function AlertsManager() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Quản lý cảnh báo lũ</h1>
-          <p className="page-subtitle">Tạo và quản lý cảnh báo lũ cho các khu vực Hương Khê</p>
+          <h1 className="page-title">Quản lý cảnh báo khẩn cấp</h1>
+          <p className="page-subtitle">Tạo và quản lý cảnh báo khẩn cấp cho các khu vực toàn quốc</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setEditWarning(null); setShowForm(true); }}>
           <Plus size={16} /> Tạo cảnh báo mới

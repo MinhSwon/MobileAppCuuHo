@@ -15,7 +15,7 @@ function TeamForm({ initial, onSave, onClose }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
         <div style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Tên đội *</label>
-          <input className="form-input" value={form.team_name} onChange={e => setForm(f => ({ ...f, team_name: e.target.value }))} required placeholder="VD: Đội cứu hộ Hà Linh" />
+          <input className="form-input" value={form.team_name} onChange={e => setForm(f => ({ ...f, team_name: e.target.value }))} required placeholder="VD: Đội cứu hộ Đà Nẵng" />
         </div>
         <div>
           <label className="form-label">Khu vực phụ trách *</label>

@@ -7,7 +7,7 @@ export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState('system');
 
   // State values for system parameters
-  const [systemName, setSystemName] = useState('FLOODGUARD HƯƠNG KHÊ');
+  const [systemName, setSystemName] = useState('RESCUEVN');
   const [emergencyPhone, setEmergencyPhone] = useState('0693 851 000');
   const [supportPhone1, setSupportPhone1] = useState('114');
   const [supportPhone2, setSupportPhone2] = useState('115');
@@ -18,7 +18,7 @@ export default function AdminSettings() {
   const [gpsMinAccuracy, setGpsMinAccuracy] = useState(50);
   const [mockGpsActive, setMockGpsActive] = useState(true);
 
-  // Flood thresholds state values
+  // Emergency threshold state values
   const [thresholdLevel1, setThresholdLevel1] = useState(12.5); // Yellow warning level (m)
   const [thresholdLevel2, setThresholdLevel2] = useState(14.0); // Orange warning level (m)
   const [thresholdLevel3, setThresholdLevel3] = useState(15.5); // Red critical level (m)
@@ -27,7 +27,7 @@ export default function AdminSettings() {
   // SMS Gateway state values
   const [smsGateway, setSmsGateway] = useState('viettel_simulated');
   const [smsApiKey, setSmsApiKey] = useState('••••••••••••••••••••••••••••••••');
-  const [smsSenderName, setSmsSenderName] = useState('FLOODGUARD');
+  const [smsSenderName, setSmsSenderName] = useState('RESCUEVN');
   const [autoSmsOnEmergency, setAutoSmsOnEmergency] = useState(true);
 
   const handleSave = (sectionName) => {
@@ -37,7 +37,7 @@ export default function AdminSettings() {
   const tabs = [
     { id: 'system', label: 'Hệ thống', icon: Settings },
     { id: 'gps', label: 'Định vị & Bản đồ', icon: MapPin },
-    { id: 'flood', label: 'Ngưỡng lũ lụt', icon: Droplets },
+    { id: 'flood', label: 'Ngưỡng khẩn cấp', icon: Droplets },
     { id: 'sms', label: 'SMS & Viễn thông', icon: MessageSquare },
   ];
 
@@ -238,12 +238,12 @@ export default function AdminSettings() {
           {activeTab === 'flood' && (
             <div>
               <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.15rem', fontWeight: 600, borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>
-                🌊 Ngưỡng cảnh báo lũ lụt Hương Khê
+                🌊 Ngưỡng cảnh báo khẩn cấp Việt Nam
               </h2>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '600px' }}>
                 <div style={{ padding: '0.75rem 1rem', background: 'var(--warning-light)', borderLeft: '3px solid var(--warning)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--warning)' }}>
-                  ⚠️ Cấu hình mức nước báo động (m) tại các trạm đo chính thuộc huyện Hương Khê (Sông Ngàn Sâu).
+                  ⚠️ Cấu hình mức nước báo động (m) tại các trạm đo chính thuộc huyện Việt Nam (Sông sông lớn trong khu vực).
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.875rem' }}>
@@ -295,7 +295,7 @@ export default function AdminSettings() {
                 <button
                   className="btn btn-primary"
                   style={{ width: 'fit-content', marginTop: '0.75rem' }}
-                  onClick={() => handleSave('Ngưỡng lũ lụt')}
+                  onClick={() => handleSave('Ngưỡng khẩn cấp')}
                 >
                   <Save size={16} /> Lưu cấu hình
                 </button>
@@ -344,7 +344,7 @@ export default function AdminSettings() {
                     onChange={e => setSmsSenderName(e.target.value)}
                   />
                   <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                    Brandname đăng ký với cục Viễn thông (ví dụ: FLOODGUARD hoặc UBND_HUONGKHE).
+                    Brandname đăng ký với cục Viễn thông (ví dụ: RESCUEVN hoặc TRUNGTAMCH).
                   </p>
                 </div>
 

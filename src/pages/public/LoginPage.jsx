@@ -4,6 +4,19 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Phone, Lock, Eye, EyeOff } from 'lucide-react';
 
+const DEMO_ACCOUNTS = [
+  { label: 'Admin / Điều phối viên', email: 'admin@floodguard.vn', color: '#4a6fa5' },
+  { label: 'Đội cứu hộ', email: 'doicuuho1@floodguard.vn', color: '#3a6b4a' },
+  { label: 'Người dân', email: 'nguoidan1@gmail.com', color: '#6b5a45' },
+];
+
+const FEATURES = [
+  { icon: '📍', text: 'Gửi SOS kèm vị trí GPS trong các tình huống khẩn cấp' },
+  { icon: '🆘', text: 'Điều phối đội cứu hộ và cập nhật trạng thái xử lý' },
+  { icon: '📢', text: 'Nhận cảnh báo nguy hiểm theo khu vực trên toàn quốc' },
+  { icon: '🗺️', text: 'Theo dõi điểm sơ tán, tuyến đường và vị trí hỗ trợ' },
+];
+
 export default function LoginPage() {
   const [form, setForm] = useState({ emailOrPhone: '', password: '' });
   const [showPass, setShowPass] = useState(false);
@@ -30,66 +43,58 @@ export default function LoginPage() {
     }, 500);
   };
 
-  const DEMO_ACCOUNTS = [
-    { label: 'Admin / Điều phối viên', email: 'admin@floodguard.vn', color: '#4a6fa5' },
-    { label: 'Đội cứu hộ', email: 'doicuuho1@floodguard.vn', color: '#3a6b4a' },
-    { label: 'Người dân', email: 'nguoidan1@gmail.com', color: '#6b5a45' },
-  ];
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#f5f1eb',
-      display: 'flex',
-    }}>
-      {/* Left decorative panel */}
-      <div style={{
-        flex: '0 0 420px',
-        background: '#2d2825',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: '3rem 2.5rem',
-        position: 'relative', overflow: 'hidden',
-      }} className="hide-mobile">
-        {/* Subtle pattern */}
-        <div style={{
-          position: 'absolute', inset: 0, opacity: 0.04,
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 30px, rgba(255,255,255,0.5) 30px, rgba(255,255,255,0.5) 31px), repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(255,255,255,0.5) 30px, rgba(255,255,255,0.5) 31px)',
-          pointerEvents: 'none',
-        }} />
+    <div style={{ minHeight: '100vh', background: '#f5f1eb', display: 'flex', width: '100%', overflowX: 'hidden' }}>
+      <div
+        className="hide-mobile"
+        style={{
+          flex: '0 0 420px',
+          background: '#2d2825',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '3rem 2.5rem',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: 0.04,
+            backgroundImage:
+              'repeating-linear-gradient(0deg, transparent, transparent 30px, rgba(255,255,255,0.5) 30px, rgba(255,255,255,0.5) 31px), repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(255,255,255,0.5) 30px, rgba(255,255,255,0.5) 31px)',
+            pointerEvents: 'none',
+          }}
+        />
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 320 }}>
-          <img src="/logo.svg" alt="Cong thong tin cuu ho ngap lu" className="login-brand-logo" />
-          <h1 style={{ fontFamily: "'Lora', serif", color: '#f0ece5', fontSize: '1.6rem', fontWeight: 600, letterSpacing: '-0.01em', marginBottom: '0.625rem' }}>
-            CUU HO NGAP LU
+          <img src="/logo.svg" alt="Ứng dụng cứu hộ Việt Nam" className="login-brand-logo" />
+          <h1 style={{ fontFamily: "'Lora', serif", color: '#f0ece5', fontSize: '1.6rem', fontWeight: 600, marginBottom: '0.625rem' }}>
+            CỨU HỘ VIỆT NAM
           </h1>
           <p style={{ color: '#8a8278', fontSize: '0.82rem', lineHeight: 1.7, marginBottom: '2.5rem' }}>
-            Hệ thống cảnh báo lũ lụt & điều phối cứu hộ cho khu vực Hương Khê, Hà Tĩnh.
+            Ứng dụng cảnh báo khẩn cấp, gửi SOS GPS và điều phối cứu hộ cho người dân trên toàn Việt Nam.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', textAlign: 'left' }}>
-            {[
-              { icon: '🌊', text: 'Theo dõi cảnh báo lũ theo thời gian thực' },
-              { icon: '🆘', text: 'Điều phối cứu hộ và xử lý yêu cầu khẩn cấp' },
-              { icon: '📱', text: 'Gửi SMS cảnh báo hàng loạt đến người dân' },
-              { icon: '🗺️', text: 'Quản lý tuyến đường và điểm sơ tán' },
-            ].map((f, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
-                <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
-                <span style={{ fontSize: '0.78rem', color: '#9e9282', lineHeight: 1.5 }}>{f.text}</span>
+            {FEATURES.map((feature) => (
+              <div key={feature.text} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
+                <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: 1 }}>{feature.icon}</span>
+                <span style={{ fontSize: '0.78rem', color: '#9e9282', lineHeight: 1.5 }}>{feature.text}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Right login panel */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-        <div style={{ width: '100%', maxWidth: 380 }}>
-          {/* Mobile logo */}
-          <div style={{ textAlign: 'center', marginBottom: '2rem', display: 'none' }} className="show-mobile">
-            <img src="/logo.svg" alt="Cong thong tin cuu ho ngap lu" className="login-brand-logo mobile" />
-            <h1 style={{ fontFamily: "'Lora', serif", fontSize: '1.25rem', color: '#2a2520', fontWeight: 600 }}>CUU HO NGAP LU</h1>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(1rem, 5vw, 2rem)' }}>
+        <div style={{ width: '100%', maxWidth: 380, minWidth: 0 }}>
+          <div className="show-mobile" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <img src="/logo.svg" alt="Ứng dụng cứu hộ Việt Nam" className="login-brand-logo mobile" />
+            <h1 style={{ fontFamily: "'Lora', serif", fontSize: '1.25rem', color: '#2a2520', fontWeight: 600 }}>CỨU HỘ VIỆT NAM</h1>
           </div>
 
           <div style={{ marginBottom: '1.75rem' }}>
@@ -110,7 +115,7 @@ export default function LoginPage() {
                   style={{ paddingLeft: 32 }}
                   placeholder="Email hoặc số điện thoại"
                   value={form.emailOrPhone}
-                  onChange={e => setForm(f => ({ ...f, emailOrPhone: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, emailOrPhone: e.target.value }))}
                   required
                 />
               </div>
@@ -126,60 +131,57 @@ export default function LoginPage() {
                   style={{ paddingLeft: 32, paddingRight: 36 }}
                   placeholder="Mật khẩu"
                   value={form.password}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass(!showPass)}
                   style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#b8afa5', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+                  aria-label={showPass ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                 >
                   {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', justifyContent: 'center', padding: '0.6rem', fontSize: '0.85rem', marginTop: 4 }}
-              disabled={loading}
-            >
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '0.6rem', fontSize: '0.85rem', marginTop: 4 }} disabled={loading}>
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
           </form>
 
-          {/* Demo accounts */}
           <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid #e2dbd0' }}>
             <p style={{ fontSize: '0.65rem', color: '#b8afa5', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>
               Tài khoản thử nghiệm
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {DEMO_ACCOUNTS.map(acc => (
+              {DEMO_ACCOUNTS.map((acc) => (
                 <button
                   key={acc.email}
                   type="button"
-                  onClick={() => setForm(f => ({ ...f, emailOrPhone: acc.email }))}
+                  onClick={() => setForm((f) => ({ ...f, emailOrPhone: acc.email }))}
                   style={{
                     padding: '0.5rem 0.75rem',
                     borderRadius: 7,
                     border: '1px solid #e2dbd0',
                     background: '#fdfcf8',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left',
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr)',
+                    gap: 2,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    textAlign: 'left',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f5f1eb'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fdfcf8'}
                 >
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: acc.color }}>{acc.label}</span>
-                  <span style={{ fontSize: '0.65rem', color: '#b8afa5', fontFamily: 'monospace' }}>{acc.email}</span>
+                  <span style={{ fontSize: '0.65rem', color: '#b8afa5', fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{acc.email}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to="/" style={{ fontSize: '0.75rem', color: '#9e9282', textDecoration: 'none' }}>← Trang chủ</Link>
+          <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <Link to="/sos" style={{ fontSize: '0.75rem', color: '#9e9282', textDecoration: 'none' }}>← SOS khẩn cấp</Link>
             <Link to="/register" style={{ fontSize: '0.75rem', color: '#4a6fa5', textDecoration: 'none', fontWeight: 500 }}>Đăng ký →</Link>
           </div>
         </div>

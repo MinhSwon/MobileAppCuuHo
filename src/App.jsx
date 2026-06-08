@@ -6,8 +6,6 @@ import { ToastProvider } from './contexts/ToastContext';
 // Layouts
 import { AdminLayout, RescueLayout, CitizenLayout } from './components/layout/Layouts';
 
-// Public pages
-import HomePage from './pages/public/HomePage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
 import SOSPage from './pages/public/SOSPage';
@@ -62,7 +60,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public */}
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<RoleRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/sos" element={<SOSPage />} />

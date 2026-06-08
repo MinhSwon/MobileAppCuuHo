@@ -12,7 +12,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import pg from 'pg';
 
 import { getEmbedding, searchCollection } from './vectorDb.js';
 import {
@@ -27,7 +26,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const DATABASE_URL = process.env.DATABASE_URL || '';
+const FORCE_JSON_DB = process.env.FORCE_JSON_DB === 'true';
+const DATABASE_URL = FORCE_JSON_DB ? '' : (process.env.DATABASE_URL || '');
+const USE_PRISMA_DB = Boolean(DATABASE_URL);
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('base64url');
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 const IS_DEPLOYED_RUNTIME = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
@@ -40,20 +41,19 @@ const allowedOrigins = (process.env.CLIENT_ORIGINS || '')
 const defaultAllowedOrigins = [
   'https://cuuhohatinh.onrender.com',
   'https://cuuhohatinh.sonminh2709.workers.dev',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
+  'https://localhost',
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:5000',
   'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
   'http://127.0.0.1:5000',
 ];
 const corsAllowedOrigins = new Set([...defaultAllowedOrigins, ...allowedOrigins]);
-const { Pool } = pg;
-const pool = DATABASE_URL
-  ? new Pool({
-      connectionString: DATABASE_URL,
-      ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false
-    })
-  : null;
-let writeQueue = Promise.resolve();
+const prisma = USE_PRISMA_DB ? (await import('./src/lib/prisma.js')).prisma : null;
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -171,6 +171,382 @@ const VULNERABLE_HOUSEHOLD_FIELDS = [
   'emergency_contact_name', 'emergency_contact_phone', 'latitude', 'longitude', 'priority_level', 'notes',
 ];
 const SMS_LOG_FIELDS = ['recipient', 'phone', 'message', 'status', 'provider', 'error', 'user_id', 'flood_warning_id', 'floodAlertId'];
+const DEFAULT_PROJECT_CODE = process.env.APP_PROJECT_CODE || 'RESCUEVN_APP';
+let activeProject = null;
+
+function toNumber(value) {
+  return value === null || value === undefined ? null : Number(value);
+}
+
+function toIso(value) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function mapEmergencyType(text = '') {
+  const value = String(text).toLowerCase();
+  if (value.includes('cấp cứu') || value.includes('y tế') || value.includes('bệnh')) return 'MEDICAL';
+  if (value.includes('cháy')) return 'FIRE';
+  if (value.includes('tai nạn')) return 'TRAFFIC_ACCIDENT';
+  if (value.includes('sạt lở')) return 'LANDSLIDE';
+  if (value.includes('mất tích') || value.includes('lạc')) return 'MISSING_PERSON';
+  if (value.includes('cô lập')) return 'ISOLATED';
+  if (value.includes('sơ tán') || value.includes('di tản')) return 'EVACUATION';
+  if (value.includes('thực') || value.includes('nước')) return 'FOOD_WATER';
+  if (value.includes('ngập') || value.includes('lũ')) return 'FLOOD';
+  return 'OTHER';
+}
+
+function mapRouteStatus(status) {
+  if (status === 'FLOODED') return 'BLOCKED';
+  if (status === 'NORMAL') return 'OPEN';
+  return ['OPEN', 'CAUTION', 'BLOCKED', 'CLOSED'].includes(status) ? status : 'CAUTION';
+}
+
+function mapDamageStatus(status) {
+  if (status === 'CONFIRMED') return 'VERIFIED';
+  return ['PENDING', 'VERIFIED', 'REJECTED', 'RESOLVED'].includes(status) ? status : 'PENDING';
+}
+
+function mapMissionStatus(status) {
+  const map = {
+    ASSIGNED: 'DISPATCHED',
+    ACCEPTED: 'ACCEPTED',
+    MOVING: 'MOVING',
+    NEAR_VICTIM: 'MOVING',
+    ARRIVED_CONFIRMED: 'ARRIVED',
+    RESCUING: 'RESCUING',
+    RESCUED: 'COMPLETED',
+    TRANSFERRED_SAFEZONE: 'COMPLETED',
+    NEED_SUPPORT: 'NEED_SUPPORT',
+    CANCELLED: 'CANCELLED',
+  };
+  return map[status] || status || 'CREATED';
+}
+
+function missionStatusToRequestStatus(status) {
+  const map = {
+    CREATED: 'ASSIGNED',
+    DISPATCHED: 'ASSIGNED',
+    ACCEPTED: 'ACCEPTED',
+    MOVING: 'MOVING',
+    ARRIVED: 'ARRIVED_CONFIRMED',
+    RESCUING: 'RESCUING',
+    COMPLETED: 'RESCUED',
+    CANCELLED: 'CANCELLED',
+    NEED_SUPPORT: 'NEED_SUPPORT',
+  };
+  return map[status] || status;
+}
+
+function seedPasswordFor(role) {
+  if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'DISPATCHER') return process.env.SEED_ADMIN_PASSWORD || 'admin123';
+  if (role === 'RESCUE_LEADER' || role === 'RESCUE_MEMBER') return process.env.SEED_RESCUE_PASSWORD || 'rescue123';
+  return process.env.SEED_CITIZEN_PASSWORD || 'citizen123';
+}
+
+function areaName(area) {
+  return area?.metadata?.displayName || area?.name || null;
+}
+
+function toLegacyArea(area) {
+  return {
+    id: area.id,
+    old_name: area.metadata?.displayName || area.name,
+    current_name: area.name,
+    area_type: area.metadata?.areaType || area.level,
+    parent_name: area.metadata?.parentName || null,
+    province_name: area.metadata?.provinceName || 'Việt Nam',
+    risk_level: area.riskLevel,
+    latitude: toNumber(area.latitude),
+    longitude: toNumber(area.longitude),
+  };
+}
+
+function toLegacyUser(user) {
+  return {
+    id: user.id,
+    full_name: user.fullName,
+    phone: user.phone,
+    email: user.email,
+    password_hash: user.passwordHash,
+    role: user.role,
+    status: user.status,
+    avatar: user.avatar,
+    created_at: toIso(user.createdAt),
+    updated_at: toIso(user.updatedAt),
+  };
+}
+
+function toLegacyProfile(profile) {
+  return {
+    id: profile.id,
+    user_id: profile.userId,
+    area_id: profile.areaId,
+    village_name: profile.addressDetail,
+    address_detail: profile.addressDetail,
+    household_size: profile.householdSize,
+    elderly_count: profile.elderlyCount,
+    children_count: profile.childrenCount,
+    disabled_count: profile.disabledCount,
+    medical_notes: profile.medicalNotes,
+    latitude: toNumber(profile.latitude),
+    longitude: toNumber(profile.longitude),
+    created_at: toIso(profile.createdAt),
+    updated_at: toIso(profile.updatedAt),
+  };
+}
+
+function toLegacyHousehold(household) {
+  return {
+    id: household.id,
+    citizen_profile_id: household.profileId,
+    household_name: household.householdName,
+    address: household.address,
+    area_id: household.areaId,
+    area_name: areaName(household.area),
+    priority_level: household.priorityLevel,
+    people_count: household.peopleCount,
+    household_size: household.peopleCount,
+    elderly_count: household.elderlyCount,
+    children_count: household.childrenCount,
+    disabled_count: household.disabledCount,
+    medical_notes: household.medicalNotes,
+    latitude: toNumber(household.latitude),
+    longitude: toNumber(household.longitude),
+    created_at: toIso(household.createdAt),
+    updated_at: toIso(household.updatedAt),
+  };
+}
+
+function toLegacyTeam(team) {
+  return {
+    id: team.id,
+    team_name: team.name,
+    name: team.name,
+    area_id: team.areaId,
+    area_name: areaName(team.area),
+    phone: team.phone,
+    leader_id: team.leaderId,
+    leader_name: team.leader?.fullName || null,
+    status: team.status,
+    vehicle_type: team.vehicleType,
+    member_count: team.memberCount,
+    latitude: toNumber(team.latitude),
+    longitude: toNumber(team.longitude),
+    note: team.notes,
+    created_at: toIso(team.createdAt),
+    updated_at: toIso(team.updatedAt),
+  };
+}
+
+function toLegacyWarning(alert) {
+  return {
+    id: alert.id,
+    title: alert.title,
+    content: alert.content,
+    level: alert.level,
+    status: alert.status,
+    area_id: alert.areaId,
+    area_name: areaName(alert.area) || alert.metadata?.areaName,
+    start_time: toIso(alert.startTime),
+    end_time: toIso(alert.endTime),
+    created_by: alert.createdById,
+    created_at: toIso(alert.createdAt),
+    updated_at: toIso(alert.updatedAt),
+    sms_sent: Boolean(alert.metadata?.smsSent),
+    sms_count: alert.metadata?.smsCount || 0,
+  };
+}
+
+function toLegacyRequest(request) {
+  return {
+    id: request.id,
+    citizen_id: request.createdByUserId,
+    user_id: request.createdByUserId,
+    area_id: request.areaId,
+    area_name: request.areaName || areaName(request.area),
+    full_name: request.fullName,
+    phone: request.phone,
+    address_detail: request.addressDetail,
+    latitude: toNumber(request.latitude),
+    longitude: toNumber(request.longitude),
+    number_of_people: request.numberOfPeople,
+    has_children: request.hasChildren,
+    has_elderly: request.hasElderly,
+    has_disabled: request.hasDisabled,
+    has_medical_case: request.hasMedicalCase,
+    emergency_level: request.emergencyLevel,
+    description: request.description,
+    assigned_team_id: request.assignedTeamId,
+    assigned_team_name: request.assignedTeam?.name || null,
+    status: request.status,
+    created_at: toIso(request.createdAt),
+    accepted_at: toIso(request.acceptedAt),
+    completed_at: toIso(request.completedAt),
+    updated_at: toIso(request.updatedAt),
+  };
+}
+
+function toLegacyMission(mission) {
+  const request = mission.request;
+  return {
+    id: mission.id,
+    rescue_request_id: mission.requestId,
+    rescue_team_id: mission.teamId,
+    team_name: mission.team?.name || null,
+    victim_name: request?.fullName || null,
+    victim_phone: request?.phone || null,
+    victim_latitude: toNumber(request?.latitude),
+    victim_longitude: toNumber(request?.longitude),
+    victim_address: request?.addressDetail || null,
+    current_rescuer_latitude: toNumber(mission.latestLatitude),
+    current_rescuer_longitude: toNumber(mission.latestLongitude),
+    status: missionStatusToRequestStatus(mission.status),
+    assigned_at: toIso(mission.createdAt),
+    started_at: toIso(mission.startedAt),
+    completed_at: toIso(mission.completedAt),
+    completion_note: mission.notes || '',
+    area_id: request?.areaId || null,
+    area_name: request?.areaName || areaName(request?.area),
+    created_at: toIso(mission.createdAt),
+    updated_at: toIso(mission.updatedAt),
+  };
+}
+
+function toLegacyMissionLog(log) {
+  return {
+    id: log.id,
+    mission_id: log.missionId,
+    old_status: log.oldStatus ? missionStatusToRequestStatus(log.oldStatus) : null,
+    new_status: missionStatusToRequestStatus(log.newStatus),
+    changed_by_user_id: log.changedById,
+    note: log.note,
+    created_at: toIso(log.createdAt),
+  };
+}
+
+function toLegacySafeZone(zone) {
+  return {
+    id: zone.id,
+    name: zone.name,
+    area_id: zone.areaId,
+    area_name: areaName(zone.area),
+    address: zone.address,
+    latitude: toNumber(zone.latitude),
+    longitude: toNumber(zone.longitude),
+    capacity: zone.capacity,
+    current_people: zone.currentPeople,
+    contact_person: zone.contactPerson,
+    contact_phone: zone.contactPhone,
+    status: zone.status,
+    notes: zone.notes,
+    created_at: toIso(zone.createdAt),
+    updated_at: toIso(zone.updatedAt),
+  };
+}
+
+function toLegacyRoute(route) {
+  return {
+    id: route.id,
+    name: route.name,
+    area_id: route.areaId,
+    area_name: areaName(route.area),
+    start_point: route.startPoint,
+    end_point: route.endPoint,
+    from_location: route.startPoint,
+    to_location: route.endPoint,
+    distance_km: route.distanceKm ? Number(route.distanceKm) : null,
+    status: route.status,
+    note: route.notes,
+    notes: route.notes,
+    waypoints: route.routeGeo,
+    created_at: toIso(route.createdAt),
+    updated_at: toIso(route.updatedAt),
+  };
+}
+
+function toLegacyDamage(report) {
+  return {
+    id: report.id,
+    reporter_id: report.reporterId,
+    area_id: report.areaId,
+    area_name: areaName(report.area),
+    title: report.title,
+    damage_type: report.damageType,
+    description: report.description,
+    severity: report.severity,
+    status: report.status,
+    image_url: Array.isArray(report.imageUrls) ? report.imageUrls[0] : null,
+    latitude: toNumber(report.latitude),
+    longitude: toNumber(report.longitude),
+    created_at: toIso(report.createdAt),
+    updated_at: toIso(report.updatedAt),
+  };
+}
+
+function toLegacySms(log) {
+  return {
+    id: log.id,
+    user_id: log.userId,
+    related_warning_id: log.alertId,
+    recipient: log.recipient,
+    phone: log.phone,
+    message: log.message,
+    status: log.status,
+    provider: log.provider,
+    error: log.error,
+    sent_at: toIso(log.sentAt),
+    created_at: toIso(log.createdAt),
+  };
+}
+
+function toLegacyNotification(notification) {
+  return {
+    id: notification.id,
+    user_id: notification.userId,
+    title: notification.title,
+    message: notification.message,
+    type: notification.type,
+    is_read: notification.isRead,
+    related_id: notification.requestId,
+    created_at: toIso(notification.createdAt),
+  };
+}
+
+function toLegacyActivity(log) {
+  return {
+    id: log.id,
+    user_id: log.userId,
+    user_name: log.user?.fullName || log.actorType || null,
+    action: log.action,
+    table_name: log.targetType,
+    record_id: log.targetId,
+    note: log.note,
+    created_at: toIso(log.createdAt),
+  };
+}
+
+async function getActiveProject() {
+  if (!prisma) return null;
+  if (activeProject) return activeProject;
+
+  activeProject = await prisma.appProject.findUnique({ where: { code: DEFAULT_PROJECT_CODE } });
+  if (!activeProject) {
+    activeProject = await prisma.appProject.create({
+      data: {
+        code: DEFAULT_PROJECT_CODE,
+        name: 'Ứng dụng cứu hộ Việt Nam',
+        type: 'MOBILE_APP',
+        description: 'Project mặc định cho app cứu hộ độc lập.',
+      },
+    });
+  }
+  return activeProject;
+}
+
+function projectWhere(project, extra = {}) {
+  return { projectId: project.id, ...extra };
+}
 
 function sanitizeObject(value) {
   if (Array.isArray(value)) {
@@ -237,11 +613,11 @@ function applySeedPasswords() {
   if (!Array.isArray(db.users)) return;
 
   const seedPasswords = {
-    ADMIN: process.env.SEED_ADMIN_PASSWORD || '',
-    SUPER_ADMIN: process.env.SEED_ADMIN_PASSWORD || '',
-    RESCUE_LEADER: process.env.SEED_RESCUE_PASSWORD || '',
-    RESCUE_MEMBER: process.env.SEED_RESCUE_PASSWORD || '',
-    CITIZEN: process.env.SEED_CITIZEN_PASSWORD || '',
+    ADMIN: process.env.SEED_ADMIN_PASSWORD || 'admin123',
+    SUPER_ADMIN: process.env.SEED_ADMIN_PASSWORD || 'admin123',
+    RESCUE_LEADER: process.env.SEED_RESCUE_PASSWORD || 'rescue123',
+    RESCUE_MEMBER: process.env.SEED_RESCUE_PASSWORD || 'rescue123',
+    CITIZEN: process.env.SEED_CITIZEN_PASSWORD || 'citizen123',
   };
 
   for (const user of db.users) {
@@ -258,6 +634,7 @@ function applySeedPasswords() {
 }
 
 function hardenLegacyPasswords() {
+  if (prisma) return;
   if (!Array.isArray(db.users)) return;
 
   let changed = false;
@@ -288,11 +665,16 @@ function issueToken(user) {
   );
 }
 
-function findUserById(id) {
+async function findUserById(id) {
+  if (prisma) {
+    const project = await getActiveProject();
+    const user = await prisma.user.findFirst({ where: { id, projectId: project.id } });
+    return user ? toLegacyUser(user) : null;
+  }
   return (Array.isArray(db.users) ? db.users : []).find(user => user.id === id);
 }
 
-function authenticateOptional(req, res, next) {
+async function authenticateOptional(req, res, next) {
   const authHeader = req.get('authorization') || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
@@ -300,7 +682,7 @@ function authenticateOptional(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    const user = findUserById(payload.sub);
+    const user = await findUserById(payload.sub);
     if (user && user.status !== 'BLOCKED') {
       req.user = safeUser(user);
     }
@@ -336,72 +718,82 @@ async function verifyPassword(user, plainPassword) {
   }
 
   const isLegacyMatch = storedPassword === plainPassword;
-  if (isLegacyMatch) {
+  if (isLegacyMatch && !prisma) {
     user.password_hash = await bcrypt.hash(plainPassword, 12);
     saveDb();
   }
   return isLegacyMatch;
 }
 
+async function loadRelationalDb() {
+  const project = await getActiveProject();
+  const scoped = (extra = {}) => projectWhere(project, extra);
+
+  const [
+    areas,
+    users,
+    citizenProfiles,
+    vulnerableHouseholds,
+    alerts,
+    rescueRequests,
+    rescueMissions,
+    missionStatusLogs,
+    rescueTeams,
+    safeZones,
+    rescueRoutes,
+    smsLogs,
+    damageReports,
+    activityLogs,
+    notifications,
+  ] = await Promise.all([
+    prisma.administrativeUnit.findMany({ where: scoped(), orderBy: { createdAt: 'asc' } }),
+    prisma.user.findMany({ where: scoped(), orderBy: { createdAt: 'asc' } }),
+    prisma.citizenProfile.findMany({ where: scoped(), orderBy: { createdAt: 'asc' } }),
+    prisma.vulnerableHousehold.findMany({ where: scoped(), include: { area: true }, orderBy: { createdAt: 'asc' } }),
+    prisma.alert.findMany({ where: scoped(), include: { area: true }, orderBy: { createdAt: 'desc' } }),
+    prisma.rescueRequest.findMany({ where: scoped(), include: { area: true, assignedTeam: true }, orderBy: { createdAt: 'desc' } }),
+    prisma.rescueMission.findMany({ where: scoped(), include: { team: true, request: { include: { area: true } } }, orderBy: { createdAt: 'desc' } }),
+    prisma.missionStatusLog.findMany({ where: { mission: { projectId: project.id } }, orderBy: { createdAt: 'asc' } }),
+    prisma.rescueTeam.findMany({ where: scoped(), include: { area: true, leader: true }, orderBy: { createdAt: 'asc' } }),
+    prisma.safeZone.findMany({ where: scoped(), include: { area: true }, orderBy: { createdAt: 'asc' } }),
+    prisma.rescueRoute.findMany({ where: scoped(), include: { area: true }, orderBy: { createdAt: 'asc' } }),
+    prisma.smsLog.findMany({ where: scoped(), orderBy: { createdAt: 'desc' } }),
+    prisma.damageReport.findMany({ where: scoped(), include: { area: true }, orderBy: { createdAt: 'desc' } }),
+    prisma.activityLog.findMany({ where: scoped(), include: { user: true }, orderBy: { createdAt: 'desc' } }),
+    prisma.notification.findMany({ where: scoped(), orderBy: { createdAt: 'desc' } }),
+  ]);
+
+  return {
+    areas: areas.map(toLegacyArea),
+    users: users.map(toLegacyUser),
+    citizenProfiles: citizenProfiles.map(toLegacyProfile),
+    vulnerableHouseholds: vulnerableHouseholds.map(toLegacyHousehold),
+    floodWarnings: alerts.map(toLegacyWarning),
+    rescueRequests: rescueRequests.map(toLegacyRequest),
+    rescueMissions: rescueMissions.map(toLegacyMission),
+    missionStatusLogs: missionStatusLogs.map(toLegacyMissionLog),
+    rescueTeams: rescueTeams.map(toLegacyTeam),
+    safeZones: safeZones.map(toLegacySafeZone),
+    rescueRoutes: rescueRoutes.map(toLegacyRoute),
+    dams: DAMS,
+    smsLogs: smsLogs.map(toLegacySms),
+    damageReports: damageReports.map(toLegacyDamage),
+    activityLogs: activityLogs.map(toLegacyActivity),
+    notifications: notifications.map(toLegacyNotification),
+  };
+}
+
 async function initializePostgres() {
-  if (!pool) return false;
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      collection TEXT PRIMARY KEY,
-      data JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  for (const collection of COLLECTION_NAMES) {
-    await pool.query(
-      `INSERT INTO app_state (collection, data)
-       VALUES ($1, $2::jsonb)
-       ON CONFLICT (collection) DO NOTHING`,
-      [collection, JSON.stringify(db[collection])]
-    );
-  }
-
-  const result = await pool.query('SELECT collection, data FROM app_state');
-  for (const row of result.rows) {
-    if (COLLECTION_NAMES.includes(row.collection)) {
-      db[row.collection] = row.data;
-    }
-  }
-
-  console.log('Database loaded from PostgreSQL');
+  if (!prisma) return false;
+  await getActiveProject();
+  db = await loadRelationalDb();
+  console.log('Database loaded from PostgreSQL relational schema');
   return true;
 }
 
 // Helper function to save DB to file
 function saveDb() {
-  if (pool) {
-    writeQueue = writeQueue
-      .then(async () => {
-        const client = await pool.connect();
-        try {
-          await client.query('BEGIN');
-          for (const collection of COLLECTION_NAMES) {
-            await client.query(
-              `INSERT INTO app_state (collection, data, updated_at)
-               VALUES ($1, $2::jsonb, NOW())
-               ON CONFLICT (collection)
-               DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
-              [collection, JSON.stringify(db[collection])]
-            );
-          }
-          await client.query('COMMIT');
-        } catch (err) {
-          await client.query('ROLLBACK');
-          console.error('Failed to write PostgreSQL app_state:', err);
-        } finally {
-          client.release();
-        }
-      })
-      .catch(err => {
-        console.error('PostgreSQL write queue failed:', err);
-      });
+  if (prisma) {
     return;
   }
 
@@ -461,16 +853,20 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     uptime: process.uptime(),
-    database: pool ? 'postgresql' : 'json-file',
-    dbFile: pool ? null : DB_FILE,
+    database: prisma ? 'postgresql-relational' : 'json-file',
+    projectCode: prisma ? DEFAULT_PROJECT_CODE : null,
+    dbFile: prisma ? null : DB_FILE,
     timestamp: new Date().toISOString()
   });
 });
 
 // 1. GET ALL DATABASE STATE (Sync on page load)
-app.get('/api/db', authenticateOptional, (req, res) => {
+app.get('/api/db', authenticateOptional, async (req, res) => {
   if (req.authError) {
     return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+  if (prisma) {
+    db = await loadRelationalDb();
   }
   res.json(sanitizeDbForUser(req.user));
 });
@@ -490,7 +886,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       });
     }
 
-    const users = Array.isArray(db.users) ? db.users : [];
+    const users = prisma
+      ? (await prisma.user.findMany({ where: { projectId: (await getActiveProject()).id } })).map(toLegacyUser)
+      : (Array.isArray(db.users) ? db.users : []);
     if (users.length === 0) {
       console.error('Login failed: users collection is empty or invalid');
       return res.status(503).json({
@@ -512,7 +910,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       });
     }
 
-    const profiles = Array.isArray(db.citizenProfiles) ? db.citizenProfiles : [];
+    const profiles = prisma
+      ? (await prisma.citizenProfile.findMany({ where: { projectId: (await getActiveProject()).id } })).map(toLegacyProfile)
+      : (Array.isArray(db.citizenProfiles) ? db.citizenProfiles : []);
     const profile = profiles.find(p => p.user_id === user.id);
     const userForClient = safeUser(user);
     const token = issueToken(user);
@@ -532,10 +932,13 @@ app.use('/api/auth/login-legacy', (req, res) => {
 });
 
 // 3. SEMANTIC VECTOR SEARCH
-app.get('/api/search', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLES]), (req, res) => {
+app.get('/api/search', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLES]), async (req, res) => {
   const { q, type } = req.query;
   if (!q) {
     return res.status(400).json({ error: 'Query parameter "q" is required' });
+  }
+  if (prisma) {
+    db = await loadRelationalDb();
   }
 
   let collection;
@@ -559,8 +962,29 @@ app.get('/api/search', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLES]), (req, re
 });
 
 // 4. FLOOD WARNINGS CRUD
-app.post('/api/warnings', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/warnings', requireRoles(ADMIN_ROLES), async (req, res) => {
   const data = pickAllowed(req.body, WARNING_FIELDS);
+  if (prisma) {
+    const project = await getActiveProject();
+    const alert = await prisma.alert.create({
+      data: {
+        id: `fw-${Date.now()}`,
+        projectId: project.id,
+        areaId: data.area_id || null,
+        title: data.title || '',
+        content: data.content || '',
+        type: mapEmergencyType(`${data.title || ''} ${data.content || ''}`),
+        level: data.level || 'MEDIUM',
+        status: data.status || 'DRAFT',
+        startTime: data.start_time ? new Date(data.start_time) : null,
+        endTime: data.end_time ? new Date(data.end_time) : null,
+        createdById: req.user?.id || null,
+        metadata: { areaName: data.area_name, smsSent: false, smsCount: 0 },
+      },
+      include: { area: true },
+    });
+    return res.status(201).json(toLegacyWarning(alert));
+  }
   const textToEmbed = `${data.title || ''} ${data.content || ''} ${data.area_name || ''}`;
   const warning = {
     id: `fw-${Date.now()}`,
@@ -576,8 +1000,29 @@ app.post('/api/warnings', requireRoles(ADMIN_ROLES), (req, res) => {
   res.status(201).json(warning);
 });
 
-app.put('/api/warnings/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.put('/api/warnings/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    const existing = await prisma.alert.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Warning not found' });
+    const data = pickAllowed(req.body, WARNING_FIELDS);
+    const alert = await prisma.alert.update({
+      where: { id },
+      data: {
+        title: data.title ?? undefined,
+        content: data.content ?? undefined,
+        type: data.title || data.content ? mapEmergencyType(`${data.title || existing.title} ${data.content || existing.content}`) : undefined,
+        level: data.level ?? undefined,
+        status: data.status ?? undefined,
+        areaId: data.area_id ?? undefined,
+        startTime: data.start_time ? new Date(data.start_time) : undefined,
+        endTime: data.end_time ? new Date(data.end_time) : undefined,
+        metadata: { ...(existing.metadata || {}), areaName: data.area_name ?? existing.metadata?.areaName },
+      },
+      include: { area: true },
+    });
+    return res.json(toLegacyWarning(alert));
+  }
   const idx = db.floodWarnings.findIndex(w => w.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Warning not found' });
 
@@ -590,16 +1035,50 @@ app.put('/api/warnings/:id', requireRoles(ADMIN_ROLES), (req, res) => {
   res.json(updatedData);
 });
 
-app.delete('/api/warnings/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.delete('/api/warnings/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    await prisma.alert.deleteMany({ where: { id, projectId: (await getActiveProject()).id } });
+    return res.json({ success: true });
+  }
   db.floodWarnings = db.floodWarnings.filter(w => w.id !== id);
   saveDb();
   res.json({ success: true });
 });
 
 // 5. RESCUE REQUESTS & MISSIONS
-app.post('/api/rescue-requests', publicWriteLimiter, authenticateOptional, (req, res) => {
+app.post('/api/rescue-requests', publicWriteLimiter, authenticateOptional, async (req, res) => {
   const data = pickAllowed(req.body, RESCUE_REQUEST_PUBLIC_FIELDS);
+  if (prisma) {
+    const project = await getActiveProject();
+    const request = await prisma.rescueRequest.create({
+      data: {
+        id: `rr-${Date.now()}`,
+        projectId: project.id,
+        requestCode: `RR-${Date.now()}`,
+        source: req.user ? 'MOBILE_APP' : (data.sos_mode ? 'SOS_PUBLIC' : 'MOBILE_APP'),
+        emergencyType: mapEmergencyType(`${data.description || ''} ${data.note || ''}`),
+        emergencyLevel: data.emergency_level || 'HIGH',
+        status: 'PENDING',
+        fullName: data.full_name || 'Người dùng SOS',
+        phone: data.phone || null,
+        areaId: data.area_id || null,
+        areaName: data.area_name || null,
+        addressDetail: data.address_detail || null,
+        description: data.description || data.note || null,
+        numberOfPeople: Number(data.number_of_people || 1),
+        hasElderly: Boolean(data.has_elderly),
+        hasChildren: Boolean(data.has_children),
+        hasDisabled: Boolean(data.has_disabled),
+        hasMedicalCase: Boolean(data.has_medical_case),
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        createdByUserId: req.user?.id || null,
+      },
+      include: { area: true, assignedTeam: true },
+    });
+    return res.status(201).json(toLegacyRequest(request));
+  }
   if (req.user) {
     data.user_id = req.user.id;
   }
@@ -620,8 +1099,38 @@ app.post('/api/rescue-requests', publicWriteLimiter, authenticateOptional, (req,
   res.status(201).json(request);
 });
 
-app.put('/api/rescue-requests/:id', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLES]), (req, res) => {
+app.put('/api/rescue-requests/:id', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLES]), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    const existing = await prisma.rescueRequest.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Request not found' });
+    const data = pickAllowed(req.body, RESCUE_REQUEST_UPDATE_FIELDS);
+    const request = await prisma.rescueRequest.update({
+      where: { id },
+      data: {
+        fullName: data.full_name ?? undefined,
+        phone: data.phone ?? undefined,
+        areaId: data.area_id ?? undefined,
+        areaName: data.area_name ?? undefined,
+        addressDetail: data.address_detail ?? undefined,
+        description: data.description ?? data.note ?? undefined,
+        numberOfPeople: data.number_of_people === undefined ? undefined : Number(data.number_of_people),
+        emergencyLevel: data.emergency_level ?? undefined,
+        status: data.status ?? undefined,
+        assignedTeamId: data.assigned_team_id ?? undefined,
+        acceptedAt: data.accepted_at ? new Date(data.accepted_at) : undefined,
+        completedAt: data.completed_at ? new Date(data.completed_at) : undefined,
+        latitude: data.latitude ?? undefined,
+        longitude: data.longitude ?? undefined,
+        hasElderly: data.has_elderly ?? undefined,
+        hasChildren: data.has_children ?? undefined,
+        hasDisabled: data.has_disabled ?? undefined,
+        hasMedicalCase: data.has_medical_case ?? undefined,
+      },
+      include: { area: true, assignedTeam: true },
+    });
+    return res.json(toLegacyRequest(request));
+  }
   const idx = db.rescueRequests.findIndex(r => r.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Request not found' });
 
@@ -630,10 +1139,62 @@ app.put('/api/rescue-requests/:id', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLE
   res.json(db.rescueRequests[idx]);
 });
 
-app.post('/api/rescue-requests/:id/assign', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/rescue-requests/:id/assign', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
   const { teamId, teamName } = pickAllowed(req.body, ['teamId', 'teamName']);
   const currentUser = req.user;
+  if (prisma) {
+    const project = await getActiveProject();
+    const existing = await prisma.rescueRequest.findFirst({ where: { id, projectId: project.id } });
+    if (!existing) return res.status(404).json({ error: 'Request not found' });
+
+    const [request, mission] = await prisma.$transaction(async tx => {
+      const updatedRequest = await tx.rescueRequest.update({
+        where: { id },
+        data: {
+          status: 'ASSIGNED',
+          assignedTeamId: teamId,
+          acceptedAt: new Date(),
+        },
+        include: { area: true, assignedTeam: true },
+      });
+      const createdMission = await tx.rescueMission.create({
+        data: {
+          id: `rm-${Date.now()}`,
+          projectId: project.id,
+          requestId: id,
+          teamId,
+          status: 'DISPATCHED',
+        },
+        include: { team: true, request: { include: { area: true } } },
+      });
+      await tx.activityLog.create({
+        data: {
+          projectId: project.id,
+          userId: currentUser?.id || null,
+          action: 'Phân công đội cứu hộ',
+          targetType: 'rescue_requests',
+          targetId: id,
+          note: `Phân công ${teamName || updatedRequest.assignedTeam?.name || teamId}`,
+        },
+      });
+      if (updatedRequest.assignedTeam?.leaderId) {
+        await tx.notification.create({
+          data: {
+            projectId: project.id,
+            userId: updatedRequest.assignedTeam.leaderId,
+            requestId: id,
+            title: 'Nhiệm vụ mới!',
+            message: `Bạn được phân công cứu hộ ${updatedRequest.fullName}`,
+            type: 'MISSION_ASSIGNED',
+          },
+        });
+      }
+      return [updatedRequest, createdMission];
+    });
+
+    return res.json({ success: true, request: toLegacyRequest(request), mission: toLegacyMission(mission) });
+  }
   
   const reqIdx = db.rescueRequests.findIndex(r => r.id === id);
   if (reqIdx === -1) return res.status(404).json({ error: 'Request not found' });
@@ -712,10 +1273,49 @@ app.post('/api/rescue-requests/:id/assign', requireRoles(ADMIN_ROLES), (req, res
 });
 
 // 6. UPDATE MISSION STATUS (and link request status)
-app.post('/api/missions/:id/status', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLES]), (req, res) => {
+app.post('/api/missions/:id/status', requireRoles([...ADMIN_ROLES, ...RESCUE_ROLES]), async (req, res) => {
   const { id } = req.params;
   const { newStatus, extraData, changedByType, note } = pickAllowed(req.body, ['newStatus', 'extraData', 'changedByType', 'note']);
   const changedByUser = req.user;
+  if (prisma) {
+    const mission = await prisma.rescueMission.findUnique({ where: { id }, include: { request: true } });
+    if (!mission) return res.status(404).json({ error: 'Mission not found' });
+    const missionStatus = mapMissionStatus(newStatus);
+    const requestStatus = missionStatusToRequestStatus(missionStatus);
+    const updated = await prisma.$transaction(async tx => {
+      const updatedMission = await tx.rescueMission.update({
+        where: { id },
+        data: {
+          status: missionStatus,
+          latestLatitude: extraData?.current_rescuer_latitude ?? extraData?.latitude ?? undefined,
+          latestLongitude: extraData?.current_rescuer_longitude ?? extraData?.longitude ?? undefined,
+          completedAt: ['COMPLETED', 'CANCELLED'].includes(missionStatus) ? new Date() : undefined,
+          notes: note ?? undefined,
+        },
+        include: { team: true, request: { include: { area: true } } },
+      });
+      await tx.missionStatusLog.create({
+        data: {
+          missionId: id,
+          oldStatus: mission.status,
+          newStatus: missionStatus,
+          changedById: changedByUser?.id || null,
+          note: note || `Cập nhật trạng thái sang ${requestStatus}`,
+          latitude: extraData?.latitude ?? null,
+          longitude: extraData?.longitude ?? null,
+        },
+      });
+      await tx.rescueRequest.update({
+        where: { id: mission.requestId },
+        data: {
+          status: requestStatus,
+          completedAt: ['RESCUED', 'TRANSFERRED_SAFEZONE', 'CANCELLED'].includes(requestStatus) ? new Date() : undefined,
+        },
+      });
+      return updatedMission;
+    });
+    return res.json({ success: true, mission: toLegacyMission(updated) });
+  }
 
   const missionIdx = db.rescueMissions.findIndex(m => m.id === id);
   if (missionIdx === -1) return res.status(404).json({ error: 'Mission not found' });
@@ -753,10 +1353,30 @@ app.post('/api/missions/:id/status', requireRoles([...ADMIN_ROLES, ...RESCUE_ROL
 });
 
 // 7. RESCUE TEAMS CRUD
-app.post('/api/teams', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/teams', requireRoles(ADMIN_ROLES), async (req, res) => {
+  const data = pickAllowed(req.body, TEAM_FIELDS);
+  if (prisma) {
+    const team = await prisma.rescueTeam.create({
+      data: {
+        id: `team-${Date.now()}`,
+        projectId: (await getActiveProject()).id,
+        areaId: data.area_id || null,
+        name: data.team_name || data.name || 'Đội cứu hộ',
+        phone: data.phone || null,
+        leaderId: data.leader_id || data.leader_user_id || null,
+        status: data.status || 'AVAILABLE',
+        memberCount: Number(data.member_count || data.memberCount || 0),
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        notes: data.notes || null,
+      },
+      include: { area: true, leader: true },
+    });
+    return res.status(201).json(toLegacyTeam(team));
+  }
   const team = {
     id: `team-${Date.now()}`,
-    ...pickAllowed(req.body, TEAM_FIELDS),
+    ...data,
     created_at: new Date().toISOString()
   };
   db.rescueTeams.push(team);
@@ -764,8 +1384,29 @@ app.post('/api/teams', requireRoles(ADMIN_ROLES), (req, res) => {
   res.status(201).json(team);
 });
 
-app.put('/api/teams/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.put('/api/teams/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    const data = pickAllowed(req.body, TEAM_FIELDS);
+    const existing = await prisma.rescueTeam.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Team not found' });
+    const team = await prisma.rescueTeam.update({
+      where: { id },
+      data: {
+        areaId: data.area_id ?? undefined,
+        name: data.team_name ?? data.name ?? undefined,
+        phone: data.phone ?? undefined,
+        leaderId: data.leader_id ?? data.leader_user_id ?? undefined,
+        status: data.status ?? undefined,
+        memberCount: data.member_count === undefined && data.memberCount === undefined ? undefined : Number(data.member_count ?? data.memberCount),
+        latitude: data.latitude ?? undefined,
+        longitude: data.longitude ?? undefined,
+        notes: data.notes ?? undefined,
+      },
+      include: { area: true, leader: true },
+    });
+    return res.json(toLegacyTeam(team));
+  }
   const idx = db.rescueTeams.findIndex(t => t.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Team not found' });
 
@@ -774,16 +1415,41 @@ app.put('/api/teams/:id', requireRoles(ADMIN_ROLES), (req, res) => {
   res.json(db.rescueTeams[idx]);
 });
 
-app.delete('/api/teams/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.delete('/api/teams/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    await prisma.rescueTeam.deleteMany({ where: { id, projectId: (await getActiveProject()).id } });
+    return res.json({ success: true });
+  }
   db.rescueTeams = db.rescueTeams.filter(t => t.id !== id);
   saveDb();
   res.json({ success: true });
 });
 
 // 8. SAFE ZONES CRUD
-app.post('/api/safe-zones', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/safe-zones', requireRoles(ADMIN_ROLES), async (req, res) => {
   const data = pickAllowed(req.body, SAFE_ZONE_FIELDS);
+  if (prisma) {
+    const zone = await prisma.safeZone.create({
+      data: {
+        id: `sz-${Date.now()}`,
+        projectId: (await getActiveProject()).id,
+        areaId: data.area_id || null,
+        name: data.name || 'Điểm an toàn',
+        address: data.address || null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        capacity: Number(data.capacity || 0),
+        currentPeople: Number(data.current_people || 0),
+        contactPerson: data.manager_name || data.contact_person || null,
+        contactPhone: data.manager_phone || data.contact_phone || null,
+        status: data.status || 'AVAILABLE',
+        notes: data.notes || null,
+      },
+      include: { area: true },
+    });
+    return res.status(201).json(toLegacySafeZone(zone));
+  }
   const textToEmbed = `${data.name || ''} ${data.address || ''} ${data.notes || ''}`;
   const sz = {
     id: `sz-${Date.now()}`,
@@ -796,8 +1462,31 @@ app.post('/api/safe-zones', requireRoles(ADMIN_ROLES), (req, res) => {
   res.status(201).json(sz);
 });
 
-app.put('/api/safe-zones/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.put('/api/safe-zones/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    const data = pickAllowed(req.body, SAFE_ZONE_FIELDS);
+    const existing = await prisma.safeZone.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Safe zone not found' });
+    const zone = await prisma.safeZone.update({
+      where: { id },
+      data: {
+        areaId: data.area_id ?? undefined,
+        name: data.name ?? undefined,
+        address: data.address ?? undefined,
+        latitude: data.latitude ?? undefined,
+        longitude: data.longitude ?? undefined,
+        capacity: data.capacity === undefined ? undefined : Number(data.capacity),
+        currentPeople: data.current_people === undefined ? undefined : Number(data.current_people),
+        contactPerson: data.manager_name ?? data.contact_person ?? undefined,
+        contactPhone: data.manager_phone ?? data.contact_phone ?? undefined,
+        status: data.status ?? undefined,
+        notes: data.notes ?? undefined,
+      },
+      include: { area: true },
+    });
+    return res.json(toLegacySafeZone(zone));
+  }
   const idx = db.safeZones.findIndex(s => s.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Safe zone not found' });
 
@@ -810,18 +1499,41 @@ app.put('/api/safe-zones/:id', requireRoles(ADMIN_ROLES), (req, res) => {
   res.json(updated);
 });
 
-app.delete('/api/safe-zones/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.delete('/api/safe-zones/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    await prisma.safeZone.deleteMany({ where: { id, projectId: (await getActiveProject()).id } });
+    return res.json({ success: true });
+  }
   db.safeZones = db.safeZones.filter(s => s.id !== id);
   saveDb();
   res.json({ success: true });
 });
 
 // 9. RESCUE ROUTES CRUD
-app.post('/api/routes', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/routes', requireRoles(ADMIN_ROLES), async (req, res) => {
+  const data = pickAllowed(req.body, ROUTE_FIELDS);
+  if (prisma) {
+    const route = await prisma.rescueRoute.create({
+      data: {
+        id: `route-${Date.now()}`,
+        projectId: (await getActiveProject()).id,
+        areaId: data.area_id || null,
+        name: data.name || 'Tuyến cứu hộ',
+        startPoint: data.from_location || data.start_point || null,
+        endPoint: data.to_location || data.end_point || null,
+        distanceKm: data.distance_km ?? null,
+        status: mapRouteStatus(data.status),
+        routeGeo: data.waypoints || null,
+        notes: data.notes || null,
+      },
+      include: { area: true },
+    });
+    return res.status(201).json(toLegacyRoute(route));
+  }
   const route = {
     id: `route-${Date.now()}`,
-    ...pickAllowed(req.body, ROUTE_FIELDS),
+    ...data,
     created_at: new Date().toISOString()
   };
   db.rescueRoutes.push(route);
@@ -829,8 +1541,28 @@ app.post('/api/routes', requireRoles(ADMIN_ROLES), (req, res) => {
   res.status(201).json(route);
 });
 
-app.put('/api/routes/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.put('/api/routes/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    const data = pickAllowed(req.body, ROUTE_FIELDS);
+    const existing = await prisma.rescueRoute.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Route not found' });
+    const route = await prisma.rescueRoute.update({
+      where: { id },
+      data: {
+        areaId: data.area_id ?? undefined,
+        name: data.name ?? undefined,
+        startPoint: data.from_location ?? data.start_point ?? undefined,
+        endPoint: data.to_location ?? data.end_point ?? undefined,
+        distanceKm: data.distance_km ?? undefined,
+        status: data.status ? mapRouteStatus(data.status) : undefined,
+        routeGeo: data.waypoints ?? undefined,
+        notes: data.notes ?? undefined,
+      },
+      include: { area: true },
+    });
+    return res.json(toLegacyRoute(route));
+  }
   const idx = db.rescueRoutes.findIndex(r => r.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Route not found' });
 
@@ -839,18 +1571,43 @@ app.put('/api/routes/:id', requireRoles(ADMIN_ROLES), (req, res) => {
   res.json(db.rescueRoutes[idx]);
 });
 
-app.delete('/api/routes/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.delete('/api/routes/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    await prisma.rescueRoute.deleteMany({ where: { id, projectId: (await getActiveProject()).id } });
+    return res.json({ success: true });
+  }
   db.rescueRoutes = db.rescueRoutes.filter(r => r.id !== id);
   saveDb();
   res.json({ success: true });
 });
 
 // 10. ACTIVITY LOGS, DAMAGE REPORTS, SMS LOGS & VULNERABLE HOUSEHOLDS
-app.post('/api/damage-reports', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/damage-reports', requireRoles(ADMIN_ROLES), async (req, res) => {
+  const data = pickAllowed(req.body, DAMAGE_REPORT_FIELDS);
+  if (prisma) {
+    const report = await prisma.damageReport.create({
+      data: {
+        id: `dr-${Date.now()}`,
+        projectId: (await getActiveProject()).id,
+        areaId: data.area_id || null,
+        reporterId: data.reporter_id || null,
+        title: `${data.damage_type || 'Thiệt hại'} - ${data.area_name || ''}`.trim(),
+        description: data.description || null,
+        damageType: data.damage_type || null,
+        severity: data.severity || 'MEDIUM',
+        status: 'PENDING',
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        imageUrls: data.images || null,
+      },
+      include: { area: true },
+    });
+    return res.status(201).json(toLegacyDamage(report));
+  }
   const dr = {
     id: `dr-${Date.now()}`,
-    ...pickAllowed(req.body, DAMAGE_REPORT_FIELDS),
+    ...data,
     status: 'PENDING',
     created_at: new Date().toISOString()
   };
@@ -859,10 +1616,32 @@ app.post('/api/damage-reports', requireRoles(ADMIN_ROLES), (req, res) => {
   res.status(201).json(dr);
 });
 
-app.post('/api/vulnerable-households', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/vulnerable-households', requireRoles(ADMIN_ROLES), async (req, res) => {
+  const data = pickAllowed(req.body, VULNERABLE_HOUSEHOLD_FIELDS);
+  if (prisma) {
+    const household = await prisma.vulnerableHousehold.create({
+      data: {
+        id: `vh-${Date.now()}`,
+        projectId: (await getActiveProject()).id,
+        areaId: data.area_id || null,
+        householdName: data.full_name || data.head_name || 'Hộ ưu tiên',
+        address: data.address_detail || null,
+        priorityLevel: data.priority_level || 'MEDIUM',
+        peopleCount: Number(data.household_size || 1),
+        elderlyCount: Number(data.elderly_count || 0),
+        childrenCount: Number(data.children_count || 0),
+        disabledCount: Number(data.disabled_count || 0),
+        medicalNotes: data.medical_note || null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+      },
+      include: { area: true },
+    });
+    return res.status(201).json(toLegacyHousehold(household));
+  }
   const vh = {
     id: `vh-${Date.now()}`,
-    ...pickAllowed(req.body, VULNERABLE_HOUSEHOLD_FIELDS),
+    ...data,
     created_at: new Date().toISOString()
   };
   db.vulnerableHouseholds.push(vh);
@@ -870,8 +1649,31 @@ app.post('/api/vulnerable-households', requireRoles(ADMIN_ROLES), (req, res) => 
   res.status(201).json(vh);
 });
 
-app.put('/api/vulnerable-households/:id', requireRoles(ADMIN_ROLES), (req, res) => {
+app.put('/api/vulnerable-households/:id', requireRoles(ADMIN_ROLES), async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    const data = pickAllowed(req.body, VULNERABLE_HOUSEHOLD_FIELDS);
+    const existing = await prisma.vulnerableHousehold.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Vulnerable household not found' });
+    const household = await prisma.vulnerableHousehold.update({
+      where: { id },
+      data: {
+        areaId: data.area_id ?? undefined,
+        householdName: data.full_name ?? data.head_name ?? undefined,
+        address: data.address_detail ?? undefined,
+        priorityLevel: data.priority_level ?? undefined,
+        peopleCount: data.household_size === undefined ? undefined : Number(data.household_size),
+        elderlyCount: data.elderly_count === undefined ? undefined : Number(data.elderly_count),
+        childrenCount: data.children_count === undefined ? undefined : Number(data.children_count),
+        disabledCount: data.disabled_count === undefined ? undefined : Number(data.disabled_count),
+        medicalNotes: data.medical_note ?? undefined,
+        latitude: data.latitude ?? undefined,
+        longitude: data.longitude ?? undefined,
+      },
+      include: { area: true },
+    });
+    return res.json(toLegacyHousehold(household));
+  }
   const idx = db.vulnerableHouseholds.findIndex(v => v.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Vulnerable household not found' });
 
@@ -880,10 +1682,29 @@ app.put('/api/vulnerable-households/:id', requireRoles(ADMIN_ROLES), (req, res) 
   res.json(db.vulnerableHouseholds[idx]);
 });
 
-app.post('/api/sms-logs', requireRoles(ADMIN_ROLES), (req, res) => {
+app.post('/api/sms-logs', requireRoles(ADMIN_ROLES), async (req, res) => {
+  const data = pickAllowed(req.body, SMS_LOG_FIELDS);
+  if (prisma) {
+    const log = await prisma.smsLog.create({
+      data: {
+        id: `sms-${Date.now()}`,
+        projectId: (await getActiveProject()).id,
+        userId: data.user_id || null,
+        alertId: data.flood_warning_id || data.floodAlertId || null,
+        recipient: data.recipient || data.phone || '',
+        phone: data.phone || '',
+        message: data.message || '',
+        status: data.status || 'PENDING',
+        provider: data.provider || null,
+        error: data.error || null,
+        sentAt: new Date(),
+      },
+    });
+    return res.status(201).json(toLegacySms(log));
+  }
   const log = {
     id: `sms-${Date.now()}`,
-    ...pickAllowed(req.body, SMS_LOG_FIELDS),
+    ...data,
     sent_at: new Date().toISOString()
   };
   db.smsLogs.unshift(log);
@@ -891,8 +1712,19 @@ app.post('/api/sms-logs', requireRoles(ADMIN_ROLES), (req, res) => {
   res.status(201).json(log);
 });
 
-app.put('/api/notifications/:id/read', requireAuth, (req, res) => {
+app.put('/api/notifications/:id/read', requireAuth, async (req, res) => {
   const { id } = req.params;
+  if (prisma) {
+    const project = await getActiveProject();
+    const notification = await prisma.notification.findFirst({ where: { id, projectId: project.id } });
+    if (notification?.userId && notification.userId !== req.user.id && !ADMIN_ROLES.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    if (notification) {
+      await prisma.notification.update({ where: { id }, data: { isRead: true } });
+    }
+    return res.json({ success: true });
+  }
   const idx = db.notifications.findIndex(n => n.id === id);
   if (idx !== -1) {
     const notification = db.notifications[idx];
@@ -952,5 +1784,5 @@ if (fs.existsSync(DIST_DIR)) {
 // Listen to port
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log(pool ? 'Database: PostgreSQL' : `Database file: ${DB_FILE}`);
+  console.log(prisma ? `Database: PostgreSQL relational (${DEFAULT_PROJECT_CODE})` : `Database file: ${DB_FILE}`);
 });

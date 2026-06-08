@@ -4,7 +4,7 @@ import './lib/apiClient.js'
 import './index.css'
 import App from './App.jsx'
 
-console.info('FloodGuard client boot 2026-06-03-a')
+console.info('RescueVN client boot 2026-06-06-a')
 
 class AppErrorBoundary extends Component {
   constructor(props) {
@@ -44,3 +44,11 @@ createRoot(document.getElementById('root')).render(
     </AppErrorBoundary>
   </StrictMode>,
 )
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('Service worker registration failed:', error)
+    })
+  })
+}

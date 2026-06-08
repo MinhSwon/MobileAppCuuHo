@@ -5,7 +5,7 @@ import { Bot, Send, Loader } from 'lucide-react';
 const INITIAL_MESSAGES = [
   {
     role: 'assistant',
-    content: '👋 Xin chào! Tôi là **AI Trợ lý FloodGuard Hương Khê**.\n\nTôi có thể giúp bạn:\n- 📊 Tóm tắt tình hình hiện tại\n- 🗺️ Gợi ý khu vực có nguy cơ cao\n- 🛡️ Gợi ý đội cứu hộ phù hợp\n- 📱 Viết nội dung SMS cảnh báo\n- 📈 Phân tích báo cáo nhanh\n\nBạn cần hỗ trợ gì?',
+    content: '👋 Xin chào! Tôi là **AI Trợ lý RescueVN**.\n\nTôi có thể giúp bạn:\n- 📊 Tóm tắt tình hình hiện tại\n- 🗺️ Gợi ý khu vực có nguy cơ cao trên toàn quốc\n- 🛡️ Gợi ý đội cứu hộ phù hợp\n- 📱 Viết nội dung SMS cảnh báo\n- 📈 Phân tích báo cáo nhanh\n\nBạn cần hỗ trợ gì?',
   },
 ];
 
@@ -17,13 +17,13 @@ function generateAIResponse(message, data) {
     const pending = rescueRequests.filter(r => r.status === 'PENDING').length;
     const active = floodWarnings.filter(w => w.status === 'PUBLISHED').length;
     const available = rescueTeams.filter(t => t.status === 'AVAILABLE').length;
-    return `📊 **Tình hình hiện tại - ${new Date().toLocaleString('vi-VN')}**\n\n🌊 **Cảnh báo lũ:** ${active} đang hoạt động\n⚠️ **Yêu cầu cứu hộ chờ xử lý:** ${pending} yêu cầu\n🛡️ **Đội cứu hộ sẵn sàng:** ${available}/${rescueTeams.length} đội\n📱 **SMS đã gửi:** ${smsLogs.filter(s => s.status === 'SENT').length} tin\n\n${pending > 2 ? '🔴 **Khuyến nghị:** Có nhiều yêu cầu chờ xử lý. Cần phân công đội cứu hộ ngay!' : '✅ Tình hình đang được kiểm soát tốt.'}`;
+    return `📊 **Tình hình hiện tại - ${new Date().toLocaleString('vi-VN')}**\n\n📢 **Cảnh báo khẩn cấp:** ${active} đang hoạt động\n⚠️ **Yêu cầu cứu hộ chờ xử lý:** ${pending} yêu cầu\n🛡️ **Đội cứu hộ sẵn sàng:** ${available}/${rescueTeams.length} đội\n📱 **SMS đã gửi:** ${smsLogs.filter(s => s.status === 'SENT').length} tin\n\n${pending > 2 ? '🔴 **Khuyến nghị:** Có nhiều yêu cầu chờ xử lý. Cần phân công đội cứu hộ ngay!' : '✅ Tình hình đang được kiểm soát tốt.'}`;
   }
 
   if (msg.includes('khu vực nguy cơ') || msg.includes('nguy hiểm') || msg.includes('rủi ro')) {
     const areas = [...new Set(rescueRequests.map(r => r.area_name))];
     const areaStats = areas.map(a => ({ name: a, count: rescueRequests.filter(r => r.area_name === a).length })).sort((a, b) => b.count - a.count);
-    return `🗺️ **Phân tích khu vực nguy cơ cao:**\n\n${areaStats.map((a, i) => `${i === 0 ? '🔴' : i === 1 ? '🟠' : '🟡'} **${a.name}**: ${a.count} yêu cầu cứu hộ`).join('\n')}\n\n📍 **Hà Linh** đang có cảnh báo khẩn cấp - cần ưu tiên nguồn lực ngay!`;
+    return `🗺️ **Phân tích khu vực nguy cơ cao:**\n\n${areaStats.map((a, i) => `${i === 0 ? '🔴' : i === 1 ? '🟠' : '🟡'} **${a.name}**: ${a.count} yêu cầu cứu hộ`).join('\n')}\n\n📍 Khu vực có cảnh báo khẩn cấp cần được ưu tiên nguồn lực ngay.`;
   }
 
   if (msg.includes('đội cứu hộ') || msg.includes('phân công') || msg.includes('assign')) {
@@ -32,7 +32,7 @@ function generateAIResponse(message, data) {
   }
 
   if (msg.includes('sms') || msg.includes('tin nhắn') || msg.includes('nội dung')) {
-    return `📱 **Mẫu SMS cảnh báo lũ:**\n\n**🔴 Khẩn cấp:**\nCANH BAO KHAN CAP: Lu dang len cao. Hay di tan ngay! Diem so tan: Truong THCS Huong Khe. LH khan: 0693851000\n\n**🟠 Mức cao:**\nCANH BAO LU: Nuoc dang dang, hay chuan bi di tan. Theo doi tin tuc tren loa phat thanh.\n\n**🟡 Theo dõi:**\nCANH BAO: Muc nuoc cac suong dang tang. Hay chu y va san sang di tan khi co lenh.\n\n💡 *Gợi ý: Nội dung SMS dưới 160 ký tự để tránh bị tách tin.*`;
+    return `📱 **Mẫu SMS cảnh báo khẩn cấp:**\n\n**🔴 Khẩn cấp:**\nCANH BAO KHAN CAP: Khu vuc cua ban dang co nguy hiem. Hay di chuyen den noi an toan. LH khan: 114/115.\n\n**🟠 Mức cao:**\nCANH BAO: Co su co can chu y tai khu vuc cua ban. Hay theo doi thong bao va san sang so tan.\n\n**🟡 Theo dõi:**\nCANH BAO: Hay chu y tinh hinh xung quanh va cap nhat thong tin tu ung dung RescueVN.\n\n💡 *Gợi ý: Nội dung SMS dưới 160 ký tự để tránh bị tách tin.*`;
   }
 
   if (msg.includes('thống kê') || msg.includes('báo cáo') || msg.includes('phân tích')) {
@@ -92,7 +92,7 @@ export default function AIAssistant() {
       <div className="page-header">
         <div>
           <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Bot size={24} color="#8b5cf6" /> AI Trợ lý FloodGuard
+            <Bot size={24} color="#8b5cf6" /> AI Trợ lý RescueVN
           </h1>
           <p className="page-subtitle">Hỗ trợ phân tích và ra quyết định trong công tác cứu hộ</p>
         </div>
@@ -158,7 +158,7 @@ export default function AIAssistant() {
         <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '0.75rem' }}>
           <input
             className="form-input"
-            placeholder="Hỏi AI trợ lý về tình hình lũ lụt, đội cứu hộ..."
+            placeholder="Hỏi AI trợ lý về tình hình khẩn cấp, đội cứu hộ..."
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}

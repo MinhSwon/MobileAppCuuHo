@@ -15,7 +15,7 @@ function SafeZoneForm({ initial, onSave, onClose }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
         <div style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Tên điểm sơ tán *</label>
-          <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="VD: Trường THCS Hương Khê" />
+          <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="VD: Nhà văn hóa phường / trường học gần nhất" />
         </div>
         <div>
           <label className="form-label">Khu vực *</label>

@@ -19,7 +19,7 @@ export default function CitizenDashboard() {
   const nearSafeZones = safeZones.filter(sz => !myProfile || sz.area_id === myProfile.area_id);
 
   const EMERGENCY_CONTACTS = [
-    { name: 'Ban PCTT Hương Khê', phone: '0693 851 000' },
+    { name: 'Trung tâm cứu hộ', phone: '114' },
     { name: 'PCCC & CNCH', phone: '114' },
     { name: 'Cấp cứu', phone: '115' },
   ];
@@ -29,7 +29,7 @@ export default function CitizenDashboard() {
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 className="page-title">Xin chào, {currentUser?.full_name}! 👋</h1>
         <p className="page-subtitle">
-          📍 {myProfile ? areas.find(a => a.id === myProfile.area_id)?.old_name || 'Hương Khê' : 'Hương Khê, Hà Tĩnh'}
+          📍 {myProfile ? areas.find(a => a.id === myProfile.area_id)?.old_name || 'Việt Nam' : 'Toàn bộ Việt Nam'}
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export default function CitizenDashboard() {
             <Link to="/citizen/warnings" className="btn btn-warning" style={{ justifyContent: 'flex-start', padding: '0.875rem 1rem' }}>
               <Bell size={20} />
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 700 }}>📢 Xem cảnh báo lũ</div>
+                <div style={{ fontWeight: 700 }}>📢 Xem cảnh báo khẩn cấp</div>
                 <div style={{ fontSize: '0.72rem', opacity: 0.85 }}>{activeWarnings.length} cảnh báo đang hoạt động</div>
               </div>
             </Link>

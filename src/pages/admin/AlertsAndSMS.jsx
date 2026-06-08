@@ -11,10 +11,10 @@ function SendSMSModal({ onSend, onClose }) {
   const [loading, setLoading] = useState(false);
 
   const templateMessages = [
-    { label: 'Cảnh báo lũ khẩn cấp', text: 'CANH BAO KHAN CAP: Lu dang len cao tai khu vuc cua ban. Hay di tan ngay den diem an toan! Lien he: 0693851000' },
-    { label: 'Yêu cầu cứu hộ được tiếp nhận', text: 'FLOODGUARD: Yeu cau cuu ho cua ban da duoc tiep nhan. Doi cuu ho dang tren duong den. Giu lien lac!' },
-    { label: 'Đội cứu hộ đang đến', text: 'FLOODGUARD: Doi cuu ho dang tiep can vi tri cua ban. Xin hay o yen tai cho va ra tin hieu!' },
-    { label: 'Cứu hộ hoàn tất', text: 'FLOODGUARD: Cam on ban da su dung he thong. Chuc ban va gia dinh binh an!' },
+    { label: 'Cảnh báo khẩn cấp', text: 'RESCUEVN: Khu vuc cua ban dang co nguy hiem. Hay di chuyen den noi an toan va theo doi huong dan. LH 114/115.' },
+    { label: 'Yêu cầu cứu hộ được tiếp nhận', text: 'RESCUEVN: Yeu cau cuu ho cua ban da duoc tiep nhan. Doi cuu ho dang tren duong den. Giu lien lac!' },
+    { label: 'Đội cứu hộ đang đến', text: 'RESCUEVN: Doi cuu ho dang tiep can vi tri cua ban. Xin hay o yen tai cho an toan va ra tin hieu!' },
+    { label: 'Cứu hộ hoàn tất', text: 'RESCUEVN: Cam on ban da su dung he thong. Chuc ban va gia dinh binh an!' },
   ];
 
   const handleSend = () => {

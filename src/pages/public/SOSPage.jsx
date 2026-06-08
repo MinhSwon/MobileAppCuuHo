@@ -1,18 +1,18 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
-import { AlertTriangle, Phone, MapPin, Loader, CheckCircle, Navigation, X, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Phone, MapPin, Loader, CheckCircle, X, ChevronDown } from 'lucide-react';
 import { AREAS } from '../../data/mockData';
 
 const EMERGENCY_TYPES = [
-  { emoji: '🏠', label: 'Nhà bị ngập', desc: 'Nước dâng vào nhà' },
-  { emoji: '🚤', label: 'Mắc kẹt trên mái', desc: 'Cần xuồng cứu nạn' },
-  { emoji: '🌾', label: 'Hộ bị cô lập', desc: 'Bị chia cắt hoàn toàn' },
-  { emoji: '🥫', label: 'Thiếu lương thực', desc: 'Cần tiếp tế ăn uống, nước' },
-  { emoji: '🚑', label: 'Cấp cứu / Y tế', desc: 'Cần chuyển viện, thuốc men' },
-  { emoji: '👴', label: 'Người già/Trẻ nhỏ', desc: 'Cần ưu tiên di tản trước' },
-  { emoji: '🆘', label: 'Nguy kịch tính mạng', desc: 'Đang gặp nguy hiểm cực lớn' },
-  { emoji: '📵', label: 'Yêu cầu khác', desc: 'Cần hỗ trợ khác' },
+  { emoji: '🚑', label: 'Cấp cứu y tế', desc: 'Cần xe cấp cứu, thuốc hoặc chuyển viện' },
+  { emoji: '🔥', label: 'Cháy nổ', desc: 'Cần lực lượng PCCC và cứu nạn' },
+  { emoji: '🚧', label: 'Tai nạn giao thông', desc: 'Có người mắc kẹt hoặc bị thương' },
+  { emoji: '⛰️', label: 'Sạt lở / cô lập', desc: 'Bị chia cắt, cần hỗ trợ tiếp cận' },
+  { emoji: '🌊', label: 'Lũ lụt / ngập sâu', desc: 'Nước dâng, cần sơ tán hoặc xuồng cứu hộ' },
+  { emoji: '🧭', label: 'Mất tích / lạc đường', desc: 'Cần tìm kiếm và định vị' },
+  { emoji: '👴', label: 'Người già / Trẻ nhỏ', desc: 'Cần ưu tiên sơ tán trước' },
+  { emoji: '🆘', label: 'Nguy kịch tính mạng', desc: 'Đang gặp nguy hiểm trực tiếp' },
 ];
 
 export default function SOSPage() {
@@ -31,15 +31,7 @@ export default function SOSPage() {
   const [countdown, setCountdown] = useState(null);
   const timerRef = useRef(null);
 
-  // Auto-grab GPS when entering LOCATION step
-  useEffect(() => {
-    if (step === 'LOCATION') {
-      grabGPS();
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [step]);
-
-  const grabGPS = () => {
+  const grabGPS = useCallback(() => {
     setGpsLoading(true);
     setGpsError(false);
     if (navigator.geolocation) {
@@ -58,6 +50,15 @@ export default function SOSPage() {
       setGpsError(true);
       setGpsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  const goToLocationStep = () => {
+    setStep('LOCATION');
+    grabGPS();
   };
 
   const handleSend = () => {
@@ -93,10 +94,10 @@ export default function SOSPage() {
       emergency_level: 'EMERGENCY',
       latitude: gps?.lat || null,
       longitude: gps?.lon || null,
-      has_elderly: selectedType?.emoji === '👴',
-      has_children: selectedType?.emoji === '👨‍👩‍👧',
+      has_elderly: selectedType?.label?.includes('Người già') || false,
+      has_children: selectedType?.label?.includes('Trẻ nhỏ') || false,
       has_disabled: false,
-      has_medical_case: selectedType?.emoji === '👴',
+      has_medical_case: selectedType?.label?.includes('y tế') || selectedType?.label?.includes('Nguy kịch') || false,
       sos_mode: true,
     });
     addNotification(null, '🆘 SOS KHẨN CẤP!', `${phone} cần cứu hộ — ${selectedType?.label}${gps ? ` (GPS: ${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)})` : ''}`, 'RESCUE_REQUEST', req.id);
@@ -141,8 +142,8 @@ export default function SOSPage() {
       {/* Header */}
       <div style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 10 }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', textDecoration: 'none' }}>
-          <img src="/logo.svg" alt="Cong thong tin cuu ho ngap lu" className="brand-logo-image compact" />
-          <span style={{ color: '#94a3b8', fontSize: '0.78rem', fontWeight: 600 }}>CUU HO NGAP LU</span>
+          <img src="/logo.svg" alt="Ung dung cuu ho Viet Nam" className="brand-logo-image compact" />
+          <span style={{ color: '#94a3b8', fontSize: '0.78rem', fontWeight: 600 }}>CUU HO VIET NAM</span>
         </Link>
         <Link to="/login" style={{ color: '#64748b', fontSize: '0.75rem', textDecoration: 'none' }}>Đăng nhập</Link>
       </div>
@@ -248,7 +249,7 @@ export default function SOSPage() {
             </div>
 
             <button
-              onClick={() => phone.length >= 9 ? setStep('LOCATION') : null}
+              onClick={() => phone.length >= 9 ? goToLocationStep() : null}
               disabled={phone.length < 9}
               style={{
                 width: '100%', padding: '1rem', borderRadius: 14, border: 'none',
@@ -468,7 +469,7 @@ export default function SOSPage() {
       {/* Step indicator (bottom) */}
       {step !== 'DONE' && step !== 'SENDING' && (
         <div style={{ padding: '1.25rem', display: 'flex', justifyContent: 'center', gap: '0.375rem', position: 'relative', zIndex: 10 }}>
-          {['TYPE', 'PHONE', 'LOCATION'].map((s, i) => (
+          {['TYPE', 'PHONE', 'LOCATION'].map((s) => (
             <div key={s} style={{ width: step === s ? 24 : 8, height: 8, borderRadius: 4, background: step === s ? '#ef4444' : 'rgba(255,255,255,0.15)', transition: 'all 0.3s' }} />
           ))}
         </div>

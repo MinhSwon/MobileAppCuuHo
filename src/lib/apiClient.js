@@ -7,23 +7,13 @@ function getApiBaseURL() {
     return import.meta.env.VITE_API_BASE_URL;
   }
 
-  if (typeof window === 'undefined') {
+  // Use local proxy during Vite development
+  if (import.meta.env.DEV) {
     return '';
   }
 
-  const { protocol, hostname, origin } = window.location;
-  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-  const isRenderBackend = hostname === 'cuuhohatinh.onrender.com';
-
-  if (isLocal || isRenderBackend) {
-    return '';
-  }
-
-  if (protocol === 'https:') {
-    return PRODUCTION_API_ORIGIN;
-  }
-
-  return origin;
+  // Default to production API for built apps (mobile/web)
+  return PRODUCTION_API_ORIGIN;
 }
 
 axios.defaults.baseURL = getApiBaseURL();

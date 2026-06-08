@@ -740,6 +740,20 @@ body {
   .page-container { padding: 1rem; }
 }
 
+.show-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .show-mobile {
+    display: block !important;
+  }
+}
+
 /* ═══════════════════════════════════════
    RECHARTS
 ═══════════════════════════════════════ */

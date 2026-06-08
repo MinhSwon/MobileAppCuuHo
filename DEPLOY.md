@@ -40,8 +40,9 @@ http://localhost:5000/api/health
 
 ```text
 PORT=5000
-CLIENT_ORIGINS=https://ten-mien-cua-ban.com
-DATABASE_URL=postgresql://user:password@host:5432/flood_rescue
+CLIENT_ORIGINS=https://ten-mien-cua-ban.com,http://localhost,capacitor://localhost,ionic://localhost
+DATABASE_URL=postgresql://user:password@host:5432/rescuevn_app
+APP_PROJECT_CODE=RESCUEVN_APP
 PGSSL=true
 JWT_SECRET=tao-chuoi-ngau-nhien-dai-it-nhat-32-ky-tu
 JWT_EXPIRES_IN=8h
@@ -53,7 +54,7 @@ SEED_CITIZEN_PASSWORD=doi-mat-khau-nguoi-dan-moi
 Ghi chu:
 
 - `PORT` thuong duoc hosting tu gan, khong can dat tren Render.
-- `CLIENT_ORIGINS` co the bo trong neu frontend va API chay cung domain.
+- `CLIENT_ORIGINS` co the bo trong neu frontend va API chay cung domain. Neu build Android Capacitor, them `http://localhost`, `capacitor://localhost`, va `ionic://localhost`.
 - Khi co `DATABASE_URL`, Prisma se ket noi PostgreSQL va quan ly cac bang quan he.
 - Tren Render nen luon cau hinh `DATABASE_URL`; `db.json` chi phu hop de chay local va khong duoc commit len Git.
 - `PGSSL=true` thuong can cho database tren hosting. Neu PostgreSQL chay local bang pgAdmin thi de `PGSSL=false`.

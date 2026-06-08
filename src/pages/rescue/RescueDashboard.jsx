@@ -10,6 +10,7 @@ export default function RescueDashboard() {
   const { rescueMissions, rescueTeams, rescueRequests, floodWarnings } = useData();
 
   const myTeam = rescueTeams.find(t =>
+    t.leader_id === currentUser?.id ||
     t.leader_user_id === currentUser?.id ||
     currentUser?.team_id === t.id
   ) || rescueTeams[0];
@@ -24,7 +25,7 @@ export default function RescueDashboard() {
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 className="page-title">Chào mừng, {currentUser?.full_name}! 🛡️</h1>
         <p className="page-subtitle">
-          {myTeam ? `Đội: ${myTeam.team_name} · ${myTeam.area_name}` : 'Đội cứu hộ'}
+          {myTeam ? `Đội: ${myTeam.team_name}${myTeam.area_name ? ` · ${myTeam.area_name}` : ''}` : 'Đội cứu hộ'}
           {myTeam && <span style={{ marginLeft: 12 }}><StatusBadge status={myTeam.status} /></span>}
         </p>
       </div>

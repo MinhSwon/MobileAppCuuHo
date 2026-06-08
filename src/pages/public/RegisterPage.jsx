@@ -74,9 +74,9 @@ export default function RegisterPage() {
     }}>
       <div style={{ width: '100%', maxWidth: 520 }}>
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-          <img src="/logo.svg" alt="Cong thong tin cuu ho ngap lu" className="login-brand-logo mobile" />
-          <h1 style={{ fontFamily: "'Lora', serif", color: '#2a2520', fontSize: '1.45rem', fontWeight: 600, letterSpacing: '-0.01em' }}>CUU HO NGAP LU</h1>
-          <p style={{ color: '#9e9282', fontSize: '0.78rem', marginTop: 4 }}>CONG DANG KY NHAN CANH BAO LU & HO TRO</p>
+          <img src="/logo.svg" alt="Ung dung cuu ho Viet Nam" className="login-brand-logo mobile" />
+          <h1 style={{ fontFamily: "'Lora', serif", color: '#2a2520', fontSize: '1.45rem', fontWeight: 600, letterSpacing: '-0.01em' }}>CUU HO VIET NAM</h1>
+          <p style={{ color: '#9e9282', fontSize: '0.78rem', marginTop: 4 }}>CONG DANG KY NHAN CANH BAO KHAN CAP & HO TRO</p>
         </div>
 
         <div style={{

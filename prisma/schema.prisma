@@ -6,8 +6,23 @@ datasource db {
   provider = "postgresql"
 }
 
+enum ProjectType {
+  MOBILE_APP
+  NATIONAL_WEB
+  PROVINCIAL_WEB
+  PARTNER_PORTAL
+}
+
+enum ProjectStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
+  DISPATCHER
   RESCUE_LEADER
   RESCUE_MEMBER
   CITIZEN
@@ -19,10 +34,42 @@ enum UserStatus {
   BLOCKED
 }
 
-enum TeamStatus {
-  AVAILABLE
-  BUSY
-  OFFLINE
+enum AreaLevel {
+  COUNTRY
+  REGION
+  PROVINCE
+  DISTRICT
+  WARD
+  CUSTOM_ZONE
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+enum EmergencyType {
+  MEDICAL
+  FIRE
+  TRAFFIC_ACCIDENT
+  FLOOD
+  LANDSLIDE
+  MISSING_PERSON
+  ISOLATED
+  EVACUATION
+  FOOD_WATER
+  OTHER
+}
+
+enum RequestSource {
+  MOBILE_APP
+  SOS_PUBLIC
+  HOTLINE
+  ADMIN_CREATED
+  NATIONAL_WEB
+  PROVINCIAL_WEB
 }
 
 enum RescueRequestStatus {
@@ -40,11 +87,23 @@ enum RescueRequestStatus {
   CANCELLED
 }
 
-enum AlertLevel {
-  LOW
-  MEDIUM
-  HIGH
-  EMERGENCY
+enum TeamStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+  INACTIVE
+}
+
+enum MissionStatus {
+  CREATED
+  DISPATCHED
+  ACCEPTED
+  MOVING
+  ARRIVED
+  RESCUING
+  COMPLETED
+  CANCELLED
+  NEED_SUPPORT
 }
 
 enum AlertStatus {
@@ -55,116 +114,566 @@ enum AlertStatus {
   CANCELLED
 }
 
-enum SmsStatus {
+enum DeliveryChannel {
+  PUSH
+  SMS
+  EMAIL
+  IN_APP
+}
+
+enum DeliveryStatus {
   PENDING
   SENT
+  DELIVERED
   FAILED
+  READ
+}
+
+enum SafeZoneStatus {
+  AVAILABLE
+  FULL
+  CLOSED
+  INACTIVE
+}
+
+enum RouteStatus {
+  OPEN
+  CAUTION
+  BLOCKED
+  CLOSED
+}
+
+enum DamageReportStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  RESOLVED
+}
+
+enum AssetStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  LOST
+}
+
+model AppProject {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  name        String
+  type        ProjectType   @default(MOBILE_APP)
+  status      ProjectStatus @default(ACTIVE)
+  description String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  users                User[]
+  administrativeUnits  AdministrativeUnit[]
+  citizenProfiles      CitizenProfile[]
+  rescueTeams          RescueTeam[]
+  rescueRequests       RescueRequest[]
+  rescueMissions       RescueMission[]
+  alerts               Alert[]
+  safeZones            SafeZone[]
+  rescueRoutes         RescueRoute[]
+  damageReports        DamageReport[]
+  vulnerableHouseholds VulnerableHousehold[]
+  notifications        Notification[]
+  smsLogs              SmsLog[]
+  activityLogs         ActivityLog[]
+  equipmentAssets      EquipmentAsset[]
+  auditLogs            AuditLog[]
+
+  @@map("app_projects")
+}
+
+model AdministrativeUnit {
+  id          String    @id @default(cuid())
+  projectId   String    @map("project_id")
+  parentId    String?   @map("parent_id")
+  code        String?
+  name        String
+  level       AreaLevel
+  riskLevel   RiskLevel @default(LOW) @map("risk_level")
+  latitude    Decimal?  @db.Decimal(10, 7)
+  longitude   Decimal?  @db.Decimal(10, 7)
+  boundaryGeo Json?     @map("boundary_geo")
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  project   AppProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent    AdministrativeUnit?   @relation("AreaTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  AdministrativeUnit[]  @relation("AreaTree")
+  profiles  CitizenProfile[]
+  teams     RescueTeam[]
+  requests  RescueRequest[]
+  alerts    Alert[]
+  safeZones SafeZone[]
+  routes    RescueRoute[]
+  damages   DamageReport[]
+  households VulnerableHousehold[]
+
+  @@unique([projectId, code])
+  @@index([projectId, level])
+  @@index([parentId])
+  @@map("administrative_units")
 }
 
 model User {
-  id           String          @id @default(cuid())
-  fullName     String          @map("full_name")
-  phone        String?         @unique
-  email        String?         @unique
-  passwordHash String          @map("password_hash")
-  role         UserRole        @default(CITIZEN)
-  status       UserStatus      @default(ACTIVE)
+  id           String     @id @default(cuid())
+  projectId    String     @map("project_id")
+  fullName     String     @map("full_name")
+  phone        String?
+  email        String?
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(CITIZEN)
+  status       UserStatus @default(ACTIVE)
   avatar       String?
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  ledTeams      RescueTeam[]   @relation("TeamLeader")
-  rescueRequests RescueRequest[]
-  smsLogs       SmsLog[]
+  project          AppProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  citizenProfile   CitizenProfile?
+  ledTeams         RescueTeam[]         @relation("TeamLeader")
+  teamMemberships  RescueTeamMember[]
+  createdRequests  RescueRequest[]      @relation("RequestCreator")
+  assignedRequests RescueRequest[]      @relation("RequestAssignee")
+  createdAlerts    Alert[]              @relation("AlertCreator")
+  notifications    Notification[]
+  smsLogs          SmsLog[]
+  activityLogs     ActivityLog[]
+  auditLogs        AuditLog[]
 
+  @@unique([projectId, phone])
+  @@unique([projectId, email])
+  @@index([projectId, role])
+  @@index([status])
   @@map("users")
 }
 
+model CitizenProfile {
+  id             String   @id @default(cuid())
+  projectId      String   @map("project_id")
+  userId         String   @unique @map("user_id")
+  areaId         String?  @map("area_id")
+  addressDetail  String?  @map("address_detail")
+  householdSize  Int      @default(1) @map("household_size")
+  elderlyCount   Int      @default(0) @map("elderly_count")
+  childrenCount  Int      @default(0) @map("children_count")
+  disabledCount  Int      @default(0) @map("disabled_count")
+  medicalNotes   String?  @map("medical_notes")
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  project    AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area       AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  households VulnerableHousehold[]
+
+  @@index([projectId, areaId])
+  @@map("citizen_profiles")
+}
+
 model RescueTeam {
-  id          String          @id @default(cuid())
+  id          String     @id @default(cuid())
+  projectId   String     @map("project_id")
+  areaId      String?    @map("area_id")
   name        String
   phone       String?
-  leaderId    String?         @map("leader_id")
-  leaderName  String?         @map("leader_name")
-  status      TeamStatus      @default(AVAILABLE)
-  latitude    Float?
-  longitude   Float?
-  memberCount Int             @default(0) @map("member_count")
+  leaderId    String?    @map("leader_id")
+  status      TeamStatus @default(AVAILABLE)
+  vehicleType String?    @map("vehicle_type")
+  memberCount Int        @default(0) @map("member_count")
+  latitude    Decimal?   @db.Decimal(10, 7)
+  longitude   Decimal?   @db.Decimal(10, 7)
   notes       String?
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  leader         User?          @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
-  rescueRequests RescueRequest[]
+  project  AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  area     AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  leader   User?               @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  members  RescueTeamMember[]
+  requests RescueRequest[]
+  missions RescueMission[]
+  assets   EquipmentAsset[]
 
+  @@index([projectId, status])
+  @@index([areaId])
   @@map("rescue_teams")
 }
 
+model RescueTeamMember {
+  id        String   @id @default(cuid())
+  teamId    String   @map("team_id")
+  userId    String   @map("user_id")
+  position  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  team RescueTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@map("rescue_team_members")
+}
+
 model RescueRequest {
-  id               String              @id @default(cuid())
-  fullName         String              @map("full_name")
-  phone            String?
-  addressDetail    String?             @map("address_detail")
-  areaName         String?             @map("area_name")
-  description      String?
-  numberOfPeople   Int                 @default(1) @map("number_of_people")
-  emergencyLevel   AlertLevel          @default(HIGH) @map("emergency_level")
-  latitude         Float?
-  longitude        Float?
-  status           RescueRequestStatus @default(PENDING)
-  assignedTeamId   String?             @map("assigned_team_id")
-  createdByUserId  String?             @map("created_by_user_id")
-  createdAt        DateTime            @default(now()) @map("created_at")
-  acceptedAt       DateTime?           @map("accepted_at")
-  completedAt      DateTime?           @map("completed_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
+  id              String              @id @default(cuid())
+  projectId       String              @map("project_id")
+  requestCode     String?             @map("request_code")
+  source          RequestSource       @default(MOBILE_APP)
+  emergencyType   EmergencyType       @default(OTHER) @map("emergency_type")
+  emergencyLevel  RiskLevel           @default(HIGH) @map("emergency_level")
+  status          RescueRequestStatus @default(PENDING)
+  fullName        String              @map("full_name")
+  phone           String?
+  areaId          String?             @map("area_id")
+  areaName        String?             @map("area_name")
+  addressDetail   String?             @map("address_detail")
+  description     String?
+  numberOfPeople  Int                 @default(1) @map("number_of_people")
+  hasElderly      Boolean             @default(false) @map("has_elderly")
+  hasChildren     Boolean             @default(false) @map("has_children")
+  hasDisabled     Boolean             @default(false) @map("has_disabled")
+  hasMedicalCase  Boolean             @default(false) @map("has_medical_case")
+  latitude        Decimal?            @db.Decimal(10, 7)
+  longitude       Decimal?            @db.Decimal(10, 7)
+  createdByUserId String?             @map("created_by_user_id")
+  assignedUserId  String?             @map("assigned_user_id")
+  assignedTeamId  String?             @map("assigned_team_id")
+  acceptedAt      DateTime?           @map("accepted_at")
+  completedAt     DateTime?           @map("completed_at")
+  cancelledAt     DateTime?           @map("cancelled_at")
+  metadata        Json?
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
 
-  assignedTeam RescueTeam? @relation(fields: [assignedTeamId], references: [id], onDelete: SetNull)
-  createdBy    User?       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  project      AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  area         AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  createdBy    User?               @relation("RequestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  assignedUser User?               @relation("RequestAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  assignedTeam RescueTeam?         @relation(fields: [assignedTeamId], references: [id], onDelete: SetNull)
+  mission      RescueMission?
+  statusLogs   RequestStatusLog[]
+  notifications Notification[]
 
-  @@index([status])
+  @@unique([projectId, requestCode])
+  @@index([projectId, status])
+  @@index([projectId, emergencyType])
+  @@index([areaId])
   @@index([assignedTeamId])
   @@map("rescue_requests")
 }
 
-model FloodAlert {
-  id        String      @id @default(cuid())
-  title     String
-  content   String
-  level     AlertLevel  @default(MEDIUM)
-  status    AlertStatus @default(DRAFT)
-  areaName  String?     @map("area_name")
-  startTime DateTime?   @map("start_time")
-  endTime   DateTime?   @map("end_time")
-  smsSent   Boolean     @default(false) @map("sms_sent")
-  smsCount  Int         @default(0) @map("sms_count")
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt @map("updated_at")
+model RequestStatusLog {
+  id          String              @id @default(cuid())
+  requestId   String              @map("request_id")
+  oldStatus   RescueRequestStatus? @map("old_status")
+  newStatus   RescueRequestStatus  @map("new_status")
+  changedById String?             @map("changed_by_id")
+  note        String?
+  extraData   Json?               @map("extra_data")
+  createdAt   DateTime            @default(now()) @map("created_at")
 
-  smsLogs SmsLog[]
+  request RescueRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
+  @@index([requestId])
+  @@map("request_status_logs")
+}
+
+model RescueMission {
+  id              String        @id @default(cuid())
+  projectId       String        @map("project_id")
+  requestId       String        @unique @map("request_id")
+  teamId          String?       @map("team_id")
+  status          MissionStatus @default(CREATED)
+  priorityScore   Int           @default(0) @map("priority_score")
+  startedAt       DateTime?     @map("started_at")
+  completedAt     DateTime?     @map("completed_at")
+  latestLatitude  Decimal?      @map("latest_latitude") @db.Decimal(10, 7)
+  latestLongitude Decimal?      @map("latest_longitude") @db.Decimal(10, 7)
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  project AppProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  request RescueRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  team    RescueTeam?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  logs    MissionStatusLog[]
+
+  @@index([projectId, status])
+  @@index([teamId])
+  @@map("rescue_missions")
+}
+
+model MissionStatusLog {
+  id          String        @id @default(cuid())
+  missionId   String        @map("mission_id")
+  oldStatus   MissionStatus? @map("old_status")
+  newStatus   MissionStatus  @map("new_status")
+  latitude    Decimal?      @db.Decimal(10, 7)
+  longitude   Decimal?      @db.Decimal(10, 7)
+  changedById String?       @map("changed_by_id")
+  note        String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  mission RescueMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId])
+  @@map("mission_status_logs")
+}
+
+model Alert {
+  id          String      @id @default(cuid())
+  projectId   String      @map("project_id")
+  areaId      String?     @map("area_id")
+  title       String
+  content     String
+  type        EmergencyType @default(OTHER)
+  level       RiskLevel   @default(MEDIUM)
+  status      AlertStatus @default(DRAFT)
+  startTime   DateTime?   @map("start_time")
+  endTime     DateTime?   @map("end_time")
+  createdById String?     @map("created_by_id")
+  metadata    Json?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  project    AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  area       AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  createdBy  User?               @relation("AlertCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  deliveries AlertDelivery[]
+  smsLogs    SmsLog[]
+
+  @@index([projectId, status])
+  @@index([projectId, level])
+  @@index([areaId])
+  @@map("alerts")
+}
+
+model AlertDelivery {
+  id          String          @id @default(cuid())
+  alertId     String          @map("alert_id")
+  channel     DeliveryChannel
+  recipient   String
+  status      DeliveryStatus  @default(PENDING)
+  provider    String?
+  error       String?
+  sentAt      DateTime?       @map("sent_at")
+  deliveredAt DateTime?       @map("delivered_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId, channel])
   @@index([status])
-  @@index([level])
-  @@map("flood_alerts")
+  @@map("alert_deliveries")
+}
+
+model SafeZone {
+  id            String         @id @default(cuid())
+  projectId     String         @map("project_id")
+  areaId        String?        @map("area_id")
+  name          String
+  address       String?
+  latitude      Decimal?       @db.Decimal(10, 7)
+  longitude     Decimal?       @db.Decimal(10, 7)
+  capacity      Int            @default(0)
+  currentPeople Int            @default(0) @map("current_people")
+  contactPerson String?        @map("contact_person")
+  contactPhone  String?        @map("contact_phone")
+  status        SafeZoneStatus @default(AVAILABLE)
+  notes         String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  project AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  area    AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([areaId])
+  @@map("safe_zones")
+}
+
+model RescueRoute {
+  id          String      @id @default(cuid())
+  projectId   String      @map("project_id")
+  areaId      String?     @map("area_id")
+  name        String
+  startPoint  String?     @map("start_point")
+  endPoint    String?     @map("end_point")
+  distanceKm  Decimal?    @map("distance_km") @db.Decimal(8, 2)
+  status      RouteStatus @default(OPEN)
+  routeGeo    Json?       @map("route_geo")
+  notes       String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  project AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  area    AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([areaId])
+  @@map("rescue_routes")
+}
+
+model DamageReport {
+  id          String             @id @default(cuid())
+  projectId   String             @map("project_id")
+  areaId      String?            @map("area_id")
+  reporterId  String?            @map("reporter_id")
+  title       String
+  description String?
+  damageType  String?            @map("damage_type")
+  severity    RiskLevel          @default(MEDIUM)
+  status      DamageReportStatus @default(PENDING)
+  latitude    Decimal?           @db.Decimal(10, 7)
+  longitude   Decimal?           @db.Decimal(10, 7)
+  imageUrls   Json?              @map("image_urls")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  project AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  area    AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([areaId])
+  @@map("damage_reports")
+}
+
+model VulnerableHousehold {
+  id               String   @id @default(cuid())
+  projectId        String   @map("project_id")
+  profileId        String?  @map("profile_id")
+  areaId           String?  @map("area_id")
+  householdName    String   @map("household_name")
+  address          String?
+  priorityLevel    RiskLevel @default(MEDIUM) @map("priority_level")
+  peopleCount      Int      @default(1) @map("people_count")
+  elderlyCount     Int      @default(0) @map("elderly_count")
+  childrenCount    Int      @default(0) @map("children_count")
+  disabledCount    Int      @default(0) @map("disabled_count")
+  medicalNotes     String?  @map("medical_notes")
+  latitude         Decimal? @db.Decimal(10, 7)
+  longitude        Decimal? @db.Decimal(10, 7)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  project AppProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  profile CitizenProfile?     @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  area    AdministrativeUnit? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, priorityLevel])
+  @@index([areaId])
+  @@map("vulnerable_households")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  userId    String?  @map("user_id")
+  requestId String?  @map("request_id")
+  title     String
+  message   String
+  type      String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project AppProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request RescueRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([projectId])
+  @@map("notifications")
 }
 
 model SmsLog {
-  id          String    @id @default(cuid())
-  recipient  String
-  phone      String
-  message    String
-  status     SmsStatus @default(PENDING)
-  provider   String?
-  error      String?
-  sentAt     DateTime? @map("sent_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  userId     String?   @map("user_id")
-  floodAlertId String? @map("flood_alert_id")
+  id        String         @id @default(cuid())
+  projectId String         @map("project_id")
+  userId    String?        @map("user_id")
+  alertId   String?        @map("alert_id")
+  recipient String
+  phone     String
+  message   String
+  status    DeliveryStatus @default(PENDING)
+  provider  String?
+  error     String?
+  sentAt    DateTime?      @map("sent_at")
+  createdAt DateTime       @default(now()) @map("created_at")
 
-  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  floodAlert FloodAlert? @relation(fields: [floodAlertId], references: [id], onDelete: SetNull)
+  project AppProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  alert   Alert?     @relation(fields: [alertId], references: [id], onDelete: SetNull)
 
-  @@index([status])
+  @@index([projectId, status])
   @@index([phone])
   @@map("sms_logs")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  userId    String?  @map("user_id")
+  actorType String?  @map("actor_type")
+  action    String
+  targetType String? @map("target_type")
+  targetId  String? @map("target_id")
+  note      String?
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project AppProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([targetType, targetId])
+  @@map("activity_logs")
+}
+
+model EquipmentAsset {
+  id          String      @id @default(cuid())
+  projectId   String      @map("project_id")
+  teamId      String?     @map("team_id")
+  name        String
+  assetType   String      @map("asset_type")
+  quantity    Int         @default(1)
+  status      AssetStatus @default(AVAILABLE)
+  notes       String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  project AppProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team    RescueTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, assetType])
+  @@index([teamId])
+  @@map("equipment_assets")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  userId    String?  @map("user_id")
+  action    String
+  tableName String?  @map("table_name")
+  recordId  String?  @map("record_id")
+  before    Json?
+  after     Json?
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project AppProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([tableName, recordId])
+  @@map("audit_logs")
 }

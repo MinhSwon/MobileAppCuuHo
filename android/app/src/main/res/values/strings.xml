@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Du An Cuu Ho</string>
+    <string name="title_activity_main">Du An Cuu Ho</string>
+    <string name="package_name">com.duancuuho.app</string>
+    <string name="custom_url_scheme">com.duancuuho.app</string>
+</resources>
