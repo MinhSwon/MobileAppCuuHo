@@ -1,23 +1,23 @@
-import { Component, StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './lib/apiClient.js'
-import './index.css'
-import App from './App.jsx'
+import { Component, StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './lib/apiClient.js';
+import './index.css';
+import App from './App.jsx';
 
-console.info('RescueVN client boot 2026-06-06-a')
+console.info('RescueVN client boot 2026-06-08-a');
 
 class AppErrorBoundary extends Component {
   constructor(props) {
-    super(props)
-    this.state = { error: null }
+    super(props);
+    this.state = { error: null };
   }
 
   static getDerivedStateFromError(error) {
-    return { error }
+    return { error };
   }
 
   componentDidCatch(error, info) {
-    console.error('Application render error:', error, info)
+    console.error('Application render error:', error, info);
   }
 
   render() {
@@ -30,10 +30,10 @@ class AppErrorBoundary extends Component {
             {this.state.error?.message || String(this.state.error)}
           </pre>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
@@ -43,12 +43,12 @@ createRoot(document.getElementById('root')).render(
       <App />
     </AppErrorBoundary>
   </StrictMode>,
-)
+);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.warn('Service worker registration failed:', error)
-    })
-  })
+      console.warn('Service worker registration failed:', error);
+    });
+  });
 }
