@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+
+import 'features/alerts/alert_list_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/citizen/citizen_home_screen.dart';
-import 'features/citizen/sos_form_screen.dart';
 import 'features/citizen/request_history_screen.dart';
-import 'features/alerts/alert_list_screen.dart';
+import 'features/citizen/sos_form_screen.dart';
 
 void main() {
   runApp(const RescueAlertApp());
