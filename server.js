@@ -1,5 +1,4 @@
-// Express.js Backend with Integrated Semantic Vector Database
-// For FLOODGUARD HƯƠNG KHÊ
+﻿// RescueVN Express backend for Flutter mobile app.
 
 import 'dotenv/config';
 import express from 'express';
@@ -138,6 +137,13 @@ const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
 const RESCUE_ROLES = ['RESCUE_LEADER', 'RESCUE_MEMBER'];
 const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const WARNING_FIELDS = ['title', 'content', 'level', 'status', 'area_id', 'area_name', 'start_time', 'end_time'];
+const REGISTER_FIELDS = [
+  'full_name', 'fullName', 'name', 'phone', 'email', 'password',
+  'area_id', 'areaId', 'address_detail', 'addressDetail', 'household_size',
+  'householdSize', 'elderly_count', 'elderlyCount', 'children_count',
+  'childrenCount', 'disabled_count', 'disabledCount', 'medical_notes',
+  'medicalNotes', 'latitude', 'longitude',
+];
 const RESCUE_REQUEST_PUBLIC_FIELDS = [
   'full_name', 'phone', 'area_id', 'area_name', 'address_detail', 'description', 'note',
   'number_of_people', 'emergency_level', 'latitude', 'longitude', 'has_elderly',
@@ -153,7 +159,7 @@ const TEAM_FIELDS = [
 ];
 const SAFE_ZONE_FIELDS = [
   'name', 'address', 'area_id', 'area_name', 'capacity', 'current_people', 'latitude',
-  'longitude', 'manager_name', 'manager_phone', 'notes', 'status',
+  'longitude', 'manager_name', 'manager_phone', 'contact_person', 'contact_phone', 'notes', 'status',
 ];
 const ROUTE_FIELDS = [
   'name', 'from_location', 'to_location', 'area_id', 'area_name', 'distance_km',
@@ -171,6 +177,7 @@ const VULNERABLE_HOUSEHOLD_FIELDS = [
 const SMS_LOG_FIELDS = ['recipient', 'phone', 'message', 'status', 'provider', 'error', 'user_id', 'flood_warning_id', 'floodAlertId'];
 const DEFAULT_PROJECT_CODE = process.env.APP_PROJECT_CODE || 'RESCUEVN_APP';
 let activeProject = null;
+const registeredDeviceTokens = new Map();
 
 function toNumber(value) {
   return value === null || value === undefined ? null : Number(value);
@@ -182,15 +189,15 @@ function toIso(value) {
 
 function mapEmergencyType(text = '') {
   const value = String(text).toLowerCase();
-  if (value.includes('cấp cứu') || value.includes('y tế') || value.includes('bệnh')) return 'MEDICAL';
-  if (value.includes('cháy')) return 'FIRE';
-  if (value.includes('tai nạn')) return 'TRAFFIC_ACCIDENT';
-  if (value.includes('sạt lở')) return 'LANDSLIDE';
-  if (value.includes('mất tích') || value.includes('lạc')) return 'MISSING_PERSON';
-  if (value.includes('cô lập')) return 'ISOLATED';
-  if (value.includes('sơ tán') || value.includes('di tản')) return 'EVACUATION';
-  if (value.includes('thực') || value.includes('nước')) return 'FOOD_WATER';
-  if (value.includes('ngập') || value.includes('lũ')) return 'FLOOD';
+  if (value.includes('cáº¥p cá»©u') || value.includes('y táº¿') || value.includes('bá»‡nh')) return 'MEDICAL';
+  if (value.includes('chĂ¡y')) return 'FIRE';
+  if (value.includes('tai náº¡n')) return 'TRAFFIC_ACCIDENT';
+  if (value.includes('sáº¡t lá»Ÿ')) return 'LANDSLIDE';
+  if (value.includes('máº¥t tĂ­ch') || value.includes('láº¡c')) return 'MISSING_PERSON';
+  if (value.includes('cĂ´ láº­p')) return 'ISOLATED';
+  if (value.includes('sÆ¡ tĂ¡n') || value.includes('di táº£n')) return 'EVACUATION';
+  if (value.includes('thá»±c') || value.includes('nÆ°á»›c')) return 'FOOD_WATER';
+  if (value.includes('ngáº­p') || value.includes('lÅ©')) return 'FLOOD';
   return 'OTHER';
 }
 
@@ -215,13 +222,16 @@ function mapMissionStatus(status) {
     RESCUING: 'RESCUING',
     RESCUED: 'COMPLETED',
     TRANSFERRED_SAFEZONE: 'COMPLETED',
+    UNREACHABLE: 'CANCELLED',
     NEED_SUPPORT: 'NEED_SUPPORT',
     CANCELLED: 'CANCELLED',
   };
   return map[status] || status || 'CREATED';
 }
 
-function missionStatusToRequestStatus(status) {
+function missionStatusToRequestStatus(status, requestedStatus) {
+  if (requestedStatus === 'UNREACHABLE') return 'UNREACHABLE';
+  if (requestedStatus === 'TRANSFERRED_SAFEZONE') return 'TRANSFERRED_SAFEZONE';
   const map = {
     CREATED: 'ASSIGNED',
     DISPATCHED: 'ASSIGNED',
@@ -253,7 +263,7 @@ function toLegacyArea(area) {
     current_name: area.name,
     area_type: area.metadata?.areaType || area.level,
     parent_name: area.metadata?.parentName || null,
-    province_name: area.metadata?.provinceName || 'Việt Nam',
+    province_name: area.metadata?.provinceName || 'Viá»‡t Nam',
     risk_level: area.riskLevel,
     latitude: toNumber(area.latitude),
     longitude: toNumber(area.longitude),
@@ -533,9 +543,9 @@ async function getActiveProject() {
     activeProject = await prisma.appProject.create({
       data: {
         code: DEFAULT_PROJECT_CODE,
-        name: 'Ứng dụng cứu hộ Việt Nam',
+        name: 'á»¨ng dá»¥ng cá»©u há»™ Viá»‡t Nam',
         type: 'MOBILE_APP',
-        description: 'Project mặc định cho app cứu hộ độc lập.',
+        description: 'Project máº·c Ä‘á»‹nh cho app cá»©u há»™ Ä‘á»™c láº­p.',
       },
     });
   }
@@ -858,6 +868,46 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/readiness', async (req, res) => {
+  try {
+    if (prisma) {
+      const project = await getActiveProject();
+      await prisma.user.count({ where: { projectId: project.id } });
+      return res.json({
+        status: 'ready',
+        database: 'postgresql-relational',
+        projectCode: project.code,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const required = ['areas', 'users', 'rescueRequests', 'rescueTeams', 'safeZones'];
+    const missing = required.filter(key => !Array.isArray(db[key]));
+    if (missing.length > 0) {
+      return res.status(503).json({
+        status: 'not_ready',
+        database: 'json-file',
+        missing,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return res.json({
+      status: 'ready',
+      database: 'json-file',
+      dbFile: DB_FILE,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Readiness check failed:', err);
+    return res.status(503).json({
+      status: 'not_ready',
+      message: 'Database is not ready',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 // 1. GET ALL DATABASE STATE (Sync on page load)
 app.get('/api/db', authenticateOptional, async (req, res) => {
   if (req.authError) {
@@ -921,6 +971,152 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'May chu dang loi dang nhap, vui long thu lai'
+    });
+  }
+});
+
+app.post('/api/auth/register', publicWriteLimiter, async (req, res) => {
+  try {
+    const data = pickAllowed(req.body, REGISTER_FIELDS);
+    const normalize = value => (typeof value === 'string' ? value.trim() : '');
+    const fullName = normalize(data.full_name || data.fullName || data.name);
+    const phone = normalize(data.phone);
+    const email = normalize(data.email).toLowerCase();
+    const password = normalize(data.password);
+    const addressDetail = normalize(data.address_detail || data.addressDetail);
+    const areaId = normalize(data.area_id || data.areaId) || null;
+    const householdSize = Math.max(1, Number(data.household_size || data.householdSize || 1));
+
+    if (!fullName || !phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui long nhap ho ten, so dien thoai va mat khau'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mat khau can toi thieu 6 ky tu'
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    if (prisma) {
+      const project = await getActiveProject();
+      const existing = await prisma.user.findFirst({
+        where: {
+          projectId: project.id,
+          OR: [
+            { phone },
+            ...(email ? [{ email }] : []),
+          ],
+        },
+      });
+
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: 'So dien thoai hoac email da duoc dang ky'
+        });
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          projectId: project.id,
+          fullName,
+          phone,
+          email: email || null,
+          passwordHash,
+          role: 'CITIZEN',
+          status: 'ACTIVE',
+        },
+      });
+
+      const profile = await prisma.citizenProfile.create({
+        data: {
+          projectId: project.id,
+          userId: user.id,
+          areaId,
+          addressDetail: addressDetail || null,
+          householdSize,
+          elderlyCount: Number(data.elderly_count || data.elderlyCount || 0),
+          childrenCount: Number(data.children_count || data.childrenCount || 0),
+          disabledCount: Number(data.disabled_count || data.disabledCount || 0),
+          medicalNotes: normalize(data.medical_notes || data.medicalNotes) || null,
+          latitude: data.latitude ?? null,
+          longitude: data.longitude ?? null,
+        },
+      });
+
+      const legacyUser = toLegacyUser(user);
+      const userForClient = safeUser(legacyUser);
+      const token = issueToken(legacyUser);
+      return res.status(201).json({
+        success: true,
+        user: userForClient,
+        profile: toLegacyProfile(profile),
+        token,
+      });
+    }
+
+    const users = Array.isArray(db.users) ? db.users : [];
+    const exists = users.some(user => {
+      const samePhone = normalize(user.phone) === phone;
+      const sameEmail = email && normalize(user.email).toLowerCase() === email;
+      return samePhone || sameEmail;
+    });
+
+    if (exists) {
+      return res.status(409).json({
+        success: false,
+        message: 'So dien thoai hoac email da duoc dang ky'
+      });
+    }
+
+    const now = new Date().toISOString();
+    const user = {
+      id: `user-${Date.now()}`,
+      full_name: fullName,
+      phone,
+      email: email || null,
+      password_hash: passwordHash,
+      role: 'CITIZEN',
+      status: 'ACTIVE',
+      avatar: null,
+      created_at: now,
+      updated_at: now,
+    };
+    const profile = {
+      id: `profile-${Date.now()}`,
+      user_id: user.id,
+      area_id: areaId,
+      village_name: addressDetail,
+      address_detail: addressDetail,
+      household_size: householdSize,
+      elderly_count: Number(data.elderly_count || data.elderlyCount || 0),
+      children_count: Number(data.children_count || data.childrenCount || 0),
+      disabled_count: Number(data.disabled_count || data.disabledCount || 0),
+      medical_notes: normalize(data.medical_notes || data.medicalNotes),
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    db.users.unshift(user);
+    db.citizenProfiles.unshift(profile);
+    saveDb();
+
+    const userForClient = safeUser(user);
+    const token = issueToken(user);
+    return res.status(201).json({ success: true, user: userForClient, profile, token });
+  } catch (err) {
+    console.error('Register route failed:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'May chu dang loi dang ky, vui long thu lai'
     });
   }
 });
@@ -1058,7 +1254,7 @@ app.post('/api/rescue-requests', publicWriteLimiter, authenticateOptional, async
         emergencyType: mapEmergencyType(`${data.description || ''} ${data.note || ''}`),
         emergencyLevel: data.emergency_level || 'HIGH',
         status: 'PENDING',
-        fullName: data.full_name || 'Người dùng SOS',
+        fullName: data.full_name || 'NgÆ°á»i dĂ¹ng SOS',
         phone: data.phone || null,
         areaId: data.area_id || null,
         areaName: data.area_name || null,
@@ -1084,6 +1280,7 @@ app.post('/api/rescue-requests', publicWriteLimiter, authenticateOptional, async
   const request = {
     id: `rr-${Date.now()}`,
     ...data,
+    source: req.user ? 'MOBILE_APP' : (data.sos_mode ? 'SOS_PUBLIC' : 'MOBILE_APP'),
     vector_embedding: getEmbedding(textToEmbed),
     status: 'PENDING',
     assigned_team_id: null,
@@ -1170,10 +1367,10 @@ app.post('/api/rescue-requests/:id/assign', requireRoles(ADMIN_ROLES), async (re
         data: {
           projectId: project.id,
           userId: currentUser?.id || null,
-          action: 'Phân công đội cứu hộ',
+          action: 'PhĂ¢n cĂ´ng Ä‘á»™i cá»©u há»™',
           targetType: 'rescue_requests',
           targetId: id,
-          note: `Phân công ${teamName || updatedRequest.assignedTeam?.name || teamId}`,
+          note: `PhĂ¢n cĂ´ng ${teamName || updatedRequest.assignedTeam?.name || teamId}`,
         },
       });
       if (updatedRequest.assignedTeam?.leaderId) {
@@ -1182,8 +1379,8 @@ app.post('/api/rescue-requests/:id/assign', requireRoles(ADMIN_ROLES), async (re
             projectId: project.id,
             userId: updatedRequest.assignedTeam.leaderId,
             requestId: id,
-            title: 'Nhiệm vụ mới!',
-            message: `Bạn được phân công cứu hộ ${updatedRequest.fullName}`,
+            title: 'Nhiá»‡m vá»¥ má»›i!',
+            message: `Báº¡n Ä‘Æ°á»£c phĂ¢n cĂ´ng cá»©u há»™ ${updatedRequest.fullName}`,
             type: 'MISSION_ASSIGNED',
           },
         });
@@ -1244,11 +1441,11 @@ app.post('/api/rescue-requests/:id/assign', requireRoles(ADMIN_ROLES), async (re
   const log = {
     id: `al-${Date.now()}`,
     user_id: currentUser?.id || null,
-    user_name: currentUser?.full_name || 'Hệ thống',
-    action: 'Phân công đội cứu hộ',
+    user_name: currentUser?.full_name || 'Há»‡ thá»‘ng',
+    action: 'PhĂ¢n cĂ´ng Ä‘á»™i cá»©u há»™',
     table_name: 'rescue_requests',
     record_id: id,
-    note: `Phân công ${teamName}`,
+    note: `PhĂ¢n cĂ´ng ${teamName}`,
     created_at: new Date().toISOString()
   };
   db.activityLogs.unshift(log);
@@ -1257,8 +1454,8 @@ app.post('/api/rescue-requests/:id/assign', requireRoles(ADMIN_ROLES), async (re
   const notif = {
     id: `notif-${Date.now()}`,
     user_id: 'user-rescue-1', // Default lead
-    title: 'Nhiệm vụ mới!',
-    message: `Bạn được phân công cứu hộ ${request.full_name}`,
+    title: 'Nhiá»‡m vá»¥ má»›i!',
+    message: `Báº¡n Ä‘Æ°á»£c phĂ¢n cĂ´ng cá»©u há»™ ${request.full_name}`,
     type: 'MISSION_ASSIGNED',
     is_read: false,
     created_at: new Date().toISOString(),
@@ -1279,7 +1476,7 @@ app.post('/api/missions/:id/status', requireRoles([...ADMIN_ROLES, ...RESCUE_ROL
     const mission = await prisma.rescueMission.findUnique({ where: { id }, include: { request: true } });
     if (!mission) return res.status(404).json({ error: 'Mission not found' });
     const missionStatus = mapMissionStatus(newStatus);
-    const requestStatus = missionStatusToRequestStatus(missionStatus);
+    const requestStatus = missionStatusToRequestStatus(missionStatus, newStatus);
     const updated = await prisma.$transaction(async tx => {
       const updatedMission = await tx.rescueMission.update({
         where: { id },
@@ -1298,7 +1495,7 @@ app.post('/api/missions/:id/status', requireRoles([...ADMIN_ROLES, ...RESCUE_ROL
           oldStatus: mission.status,
           newStatus: missionStatus,
           changedById: changedByUser?.id || null,
-          note: note || `Cập nhật trạng thái sang ${requestStatus}`,
+          note: note || `Cáº­p nháº­t tráº¡ng thĂ¡i sang ${requestStatus}`,
           latitude: extraData?.latitude ?? null,
           longitude: extraData?.longitude ?? null,
         },
@@ -1332,7 +1529,7 @@ app.post('/api/missions/:id/status', requireRoles([...ADMIN_ROLES, ...RESCUE_ROL
     new_status: newStatus,
     changed_by_type: changedByType || 'RESCUE_TEAM',
     changed_by_user_id: changedByUser?.id || null,
-    note: note || `Cập nhật trạng thái sang ${newStatus}`,
+    note: note || `Cáº­p nháº­t tráº¡ng thĂ¡i sang ${newStatus}`,
     created_at: new Date().toISOString()
   };
   db.missionStatusLogs.push(logEntry);
@@ -1359,7 +1556,7 @@ app.post('/api/teams', requireRoles(ADMIN_ROLES), async (req, res) => {
         id: `team-${Date.now()}`,
         projectId: (await getActiveProject()).id,
         areaId: data.area_id || null,
-        name: data.team_name || data.name || 'Đội cứu hộ',
+        name: data.team_name || data.name || 'Äá»™i cá»©u há»™',
         phone: data.phone || null,
         leaderId: data.leader_id || data.leader_user_id || null,
         status: data.status || 'AVAILABLE',
@@ -1433,7 +1630,7 @@ app.post('/api/safe-zones', requireRoles(ADMIN_ROLES), async (req, res) => {
         id: `sz-${Date.now()}`,
         projectId: (await getActiveProject()).id,
         areaId: data.area_id || null,
-        name: data.name || 'Điểm an toàn',
+        name: data.name || 'Äiá»ƒm an toĂ n',
         address: data.address || null,
         latitude: data.latitude ?? null,
         longitude: data.longitude ?? null,
@@ -1517,7 +1714,7 @@ app.post('/api/routes', requireRoles(ADMIN_ROLES), async (req, res) => {
         id: `route-${Date.now()}`,
         projectId: (await getActiveProject()).id,
         areaId: data.area_id || null,
-        name: data.name || 'Tuyến cứu hộ',
+        name: data.name || 'Tuyáº¿n cá»©u há»™',
         startPoint: data.from_location || data.start_point || null,
         endPoint: data.to_location || data.end_point || null,
         distanceKm: data.distance_km ?? null,
@@ -1590,7 +1787,7 @@ app.post('/api/damage-reports', requireRoles(ADMIN_ROLES), async (req, res) => {
         projectId: (await getActiveProject()).id,
         areaId: data.area_id || null,
         reporterId: data.reporter_id || null,
-        title: `${data.damage_type || 'Thiệt hại'} - ${data.area_name || ''}`.trim(),
+        title: `${data.damage_type || 'Thiá»‡t háº¡i'} - ${data.area_name || ''}`.trim(),
         description: data.description || null,
         damageType: data.damage_type || null,
         severity: data.severity || 'MEDIUM',
@@ -1622,7 +1819,7 @@ app.post('/api/vulnerable-households', requireRoles(ADMIN_ROLES), async (req, re
         id: `vh-${Date.now()}`,
         projectId: (await getActiveProject()).id,
         areaId: data.area_id || null,
-        householdName: data.full_name || data.head_name || 'Hộ ưu tiên',
+        householdName: data.full_name || data.head_name || 'Há»™ Æ°u tiĂªn',
         address: data.address_detail || null,
         priorityLevel: data.priority_level || 'MEDIUM',
         peopleCount: Number(data.household_size || 1),
@@ -1710,6 +1907,37 @@ app.post('/api/sms-logs', requireRoles(ADMIN_ROLES), async (req, res) => {
   res.status(201).json(log);
 });
 
+app.get('/api/notifications/provider-status', requireRoles(ADMIN_ROLES), (req, res) => {
+  res.json({
+    push: {
+      configured: Boolean(process.env.FCM_SERVER_KEY || process.env.GOOGLE_APPLICATION_CREDENTIALS),
+      provider: 'firebase-cloud-messaging',
+    },
+    sms: {
+      configured: Boolean(process.env.SMS_API_KEY || process.env.ESMS_API_KEY || process.env.TWILIO_AUTH_TOKEN),
+      provider: process.env.SMS_PROVIDER || 'not_configured',
+    },
+    registeredDeviceTokens: registeredDeviceTokens.size,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.post('/api/notifications/device-token', requireAuth, (req, res) => {
+  const { token, platform } = pickAllowed(req.body, ['token', 'platform']);
+  if (!token || typeof token !== 'string' || token.length < 12) {
+    return res.status(400).json({ success: false, message: 'Device token khong hop le' });
+  }
+
+  registeredDeviceTokens.set(`${req.user.id}:${token}`, {
+    user_id: req.user.id,
+    token,
+    platform: platform || 'unknown',
+    updated_at: new Date().toISOString(),
+  });
+
+  res.json({ success: true, persisted: !prisma, registeredDeviceTokens: registeredDeviceTokens.size });
+});
+
 app.put('/api/notifications/:id/read', requireAuth, async (req, res) => {
   const { id } = req.params;
   if (prisma) {
@@ -1735,7 +1963,7 @@ app.put('/api/notifications/:id/read', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
-// Serve the production React build from the same domain as the API.
+// Optional static web build hosting. The Flutter mobile app only needs the API routes.
 if (fs.existsSync(DIST_DIR)) {
   app.use('/static-assets', express.static(path.join(DIST_DIR, 'static-assets'), {
     index: false,
