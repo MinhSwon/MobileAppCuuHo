@@ -1,6 +1,6 @@
 # Huong dan dua du an len domain
 
-Du an nay da duoc cau hinh de chay frontend React va backend Express tren cung mot domain.
+Du an nay la backend Express/Prisma/PostgreSQL cho app Flutter. App Flutter se goi API backend qua URL public cua Render.
 
 ## Chay thu tren may
 
@@ -40,8 +40,7 @@ http://localhost:5000/api/health
 
 ```text
 PORT=5000
-CLIENT_ORIGINS=https://ten-mien-cua-ban.com,http://localhost,capacitor://localhost,ionic://localhost
-VITE_API_BASE_URL=https://ten-backend-render-cua-ban.onrender.com
+CLIENT_ORIGINS=https://ten-mien-cua-ban.com,http://localhost
 DATABASE_URL=postgresql://user:password@host:5432/rescuevn_app
 APP_PROJECT_CODE=RESCUEVN_APP
 PGSSL=true
@@ -55,8 +54,7 @@ SEED_CITIZEN_PASSWORD=doi-mat-khau-nguoi-dan-moi
 Ghi chu:
 
 - `PORT` thuong duoc hosting tu gan, khong can dat tren Render.
-- `CLIENT_ORIGINS` co the bo trong neu frontend va API chay cung domain. Neu build Android Capacitor, them `http://localhost`, `capacitor://localhost`, va `ionic://localhost`.
-- `VITE_API_BASE_URL` la URL backend ma app Android goi. Khong hard-code domain cu trong source; dat bien nay tren Render hoac khi build APK.
+- `CLIENT_ORIGINS` chu yeu dung cho web/admin portal sau nay. Flutter mobile native khong bi chan CORS nhu trinh duyet, nhung van nen cau hinh domain web neu co.
 - Khi co `DATABASE_URL`, Prisma se ket noi PostgreSQL va quan ly cac bang quan he.
 - Tren Render nen luon cau hinh `DATABASE_URL`; `db.json` chi phu hop de chay local va khong duoc commit len Git.
 - `PGSSL=true` thuong can cho database tren hosting. Neu PostgreSQL chay local bang pgAdmin thi de `PGSSL=false`.
