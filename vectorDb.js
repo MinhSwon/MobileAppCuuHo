@@ -1,4 +1,4 @@
-// Lightweight Semantic Vector Database Engine for FLOODGUARD HƯƠNG KHÊ
+// Lightweight semantic vector helper for RescueVN backend.
 // Pure Node.js implementation of dense vector embeddings and cosine similarity search.
 
 // 8 Semantic dimensions:
