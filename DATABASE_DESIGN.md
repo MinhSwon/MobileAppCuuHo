@@ -29,7 +29,7 @@ Database mới được thiết kế cho app cứu hộ hoạt động độc l�
 
 - Prisma schema: `prisma/schema.prisma`
 - Migration PostgreSQL: `prisma/migrations/20260608090000_rescuevn_postgres_schema/migration.sql`
-- SQL chạy trực tiếp: `scripts/postgres-schema.sql`
+- Triển khai schema: `npm run db:deploy` (dùng các migration trong `prisma/migrations/`)
 - Seed dữ liệu mẫu: `scripts/seed-prisma.js`
 - Backend Express: `server.js`
 
