@@ -4,11 +4,7 @@ import 'package:mobile_flutter/core/core.dart';
 import 'package:mobile_flutter/data/data.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({
-    super.key,
-    required this.data,
-    required this.onRegister,
-  });
+  const RegisterScreen({super.key, required this.data, required this.onRegister});
 
   final AppData data;
   final Future<void> Function(Map<String, dynamic> payload) onRegister;
@@ -28,22 +24,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final children = TextEditingController(text: '0');
   final disabled = TextEditingController(text: '0');
   final medicalNotes = TextEditingController();
-
   String? areaId;
   bool showPassword = false;
   bool loading = false;
 
   Future<void> submit() async {
-    if (name.text.trim().isEmpty ||
-        phone.text.trim().isEmpty ||
-        password.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Vui long nhap ho ten, so dien thoai va mat khau toi thieu 6 ky tu',
-          ),
-        ),
-      );
+    if (name.text.trim().isEmpty || phone.text.trim().isEmpty || password.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập họ tên, số điện thoại và mật khẩu tối thiểu 6 ký tự')));
       return;
     }
 
@@ -63,146 +50,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'medical_notes': medicalNotes.text.trim(),
       });
     } catch (err) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString().replaceFirst('Exception: ', ''))),
-      );
-    } finally {
       if (mounted) {
-        setState(() => loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err.toString().replaceFirst('Exception: ', ''))),
+        );
       }
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    areaId ??=
-        widget.data.areas.isEmpty
-            ? null
-            : valueOf(widget.data.areas.first, 'id');
+    areaId ??= widget.data.areas.isEmpty ? null : valueOf(widget.data.areas.first, 'id');
 
     return AppList(
       children: [
-        const PageTitle(
-          'Tao tai khoan nguoi dan',
-          'Gui SOS, theo doi yeu cau va nhan canh bao theo khu vuc',
-        ),
+        const PageTitle('Tạo tài khoản người dân', 'Dùng để gửi SOS, theo dõi yêu cầu và nhận cảnh báo theo khu vực'),
         CardBox(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                controller: name,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Ho va ten'),
-              ),
+              TextField(controller: name, textInputAction: TextInputAction.next, decoration: const InputDecoration(labelText: 'Họ và tên')),
               const SizedBox(height: 10),
-              TextField(
-                controller: phone,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'So dien thoai'),
-              ),
+              TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Số điện thoại')),
               const SizedBox(height: 10),
-              TextField(
-                controller: email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
+              TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email')),
               const SizedBox(height: 10),
               TextField(
                 controller: password,
                 obscureText: !showPassword,
                 decoration: InputDecoration(
-                  labelText: 'Mat khau',
+                  labelText: 'Mật khẩu',
                   suffixIcon: IconButton(
-                    onPressed: () {
-                      setState(() => showPassword = !showPassword);
-                    },
-                    icon: Icon(
-                      showPassword ? Icons.visibility_off : Icons.visibility,
-                    ),
+                    onPressed: () => setState(() => showPassword = !showPassword),
+                    icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: areaId,
-                decoration: const InputDecoration(labelText: 'Khu vuc'),
-                items:
-                    widget.data.areas
-                        .map(
-                          (area) => DropdownMenuItem(
-                            value: valueOf(area, 'id'),
-                            child: Text(valueOf(area, 'old_name')),
-                          ),
-                        )
-                        .toList(),
-                onChanged: (value) => setState(() => areaId = value),
+                decoration: const InputDecoration(labelText: 'Khu vực'),
+                items: widget.data.areas.map((a) => DropdownMenuItem(value: valueOf(a, 'id'), child: Text(valueOf(a, 'old_name')))).toList(),
+                onChanged: (v) => setState(() => areaId = v),
               ),
               const SizedBox(height: 10),
-              TextField(
-                controller: address,
-                decoration: const InputDecoration(
-                  labelText: 'Dia chi cu the',
-                ),
-              ),
+              TextField(controller: address, decoration: const InputDecoration(labelText: 'Địa chỉ cụ thể')),
               const SizedBox(height: 10),
-              TextField(
-                controller: people,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'So nguoi trong ho',
-                ),
-              ),
+              TextField(controller: people, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Số người trong hộ')),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: elderly,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Nguoi gia'),
-                    ),
-                  ),
+                  Expanded(child: TextField(controller: elderly, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Người già'))),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: children,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Tre em'),
-                    ),
-                  ),
+                  Expanded(child: TextField(controller: children, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Trẻ em'))),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: disabled,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Khuyet tat',
-                      ),
-                    ),
-                  ),
+                  Expanded(child: TextField(controller: disabled, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Khuyết tật'))),
                 ],
               ),
               const SizedBox(height: 10),
-              TextField(
-                controller: medicalNotes,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Ghi chu y te'),
-              ),
+              TextField(controller: medicalNotes, maxLines: 3, decoration: const InputDecoration(labelText: 'Ghi chú y tế')),
               const SizedBox(height: 14),
               ElevatedButton.icon(
                 onPressed: loading ? null : submit,
-                icon:
-                    loading
-                        ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : const Icon(Icons.person_add),
-                label: Text(
-                  loading ? 'Dang dang ky...' : 'Tao tai khoan',
-                ),
+                icon: loading ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.person_add),
+                label: Text(loading ? 'Đang đăng ký...' : 'Tạo tài khoản'),
               ),
             ],
           ),

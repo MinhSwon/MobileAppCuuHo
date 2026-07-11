@@ -32,7 +32,6 @@ class _PublicAccessScreenState extends State<PublicAccessScreen> {
   @override
   Widget build(BuildContext context) {
     final data = AppData(widget.db);
-
     if (tab == 0) {
       return LoginScreen(
         onLogin: widget.onLogin,
@@ -43,42 +42,29 @@ class _PublicAccessScreenState extends State<PublicAccessScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(tab == 1 ? 'Dang ky nguoi dan' : 'SOS khan cap'),
+        title: Text(tab == 1 ? 'Đăng ký người dân' : 'SOS khẩn cấp'),
         actions: [
-          IconButton(
-            onPressed: widget.onRefresh,
-            icon: const Icon(Icons.refresh),
-          ),
+          IconButton(onPressed: widget.onRefresh, icon: const Icon(Icons.refresh)),
         ],
       ),
-      body:
-          tab == 1
-              ? RegisterScreen(data: data, onRegister: widget.onRegister)
-              : SOSScreen(
-                api: widget.api,
-                user: const {},
-                profile: null,
-                data: data,
-                onSubmitted: widget.onRefresh,
-              ),
+      body: tab == 1
+          ? RegisterScreen(data: data, onRegister: widget.onRegister)
+          : SOSScreen(
+              api: widget.api,
+              user: const {},
+              profile: null,
+              data: data,
+              onSubmitted: widget.onRefresh,
+            ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: tab,
         selectedItemColor: Palette.accent,
         unselectedItemColor: Palette.muted,
         onTap: (value) => setState(() => tab = value),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.login),
-            label: 'Dang nhap',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_add),
-            label: 'Dang ky',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sos),
-            label: 'SOS',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.login), label: 'Đăng nhập'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_add), label: 'Đăng ký'),
+          BottomNavigationBarItem(icon: Icon(Icons.sos), label: 'SOS'),
         ],
       ),
     );
