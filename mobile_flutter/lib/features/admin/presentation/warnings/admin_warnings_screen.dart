@@ -28,11 +28,15 @@ class _AdminWarningsState extends State<AdminWarnings> {
   String? areaId;
 
   Future<void> createWarning() async {
-    if (title.text.isEmpty || content.text.isEmpty || areaId == null) return;
+    final warningTitle = title.text.trim();
+    final warningContent = content.text.trim();
+    if (warningTitle.isEmpty || warningContent.isEmpty || areaId == null) {
+      return;
+    }
     final area = firstWhere(widget.data.areas, 'id', areaId);
     await widget.api.createWarning({
-      'title': title.text,
-      'content': content.text,
+      'title': warningTitle,
+      'content': warningContent,
       'level': level,
       'area_id': areaId,
       'area_name': valueOf(area, 'old_name'),
