@@ -86,7 +86,7 @@ class AppDrawer extends StatelessWidget {
                         user,
                         'full_name',
                         fallback: '?',
-                      ).characters.first,
+                      ).characters.first.toUpperCase(),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -180,15 +180,13 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: Palette.muted),
               onPressed: () async {
                 Navigator.pop(context);
                 await onLogout();
               },
-              icon: const Icon(Icons.logout, color: Palette.muted),
-              label: const Text(
-                'Đăng xuất',
-                style: TextStyle(color: Palette.muted),
-              ),
+              icon: const Icon(Icons.logout),
+              label: const Text('Đăng xuất'),
             ),
             const SizedBox(height: 8),
           ],
