@@ -155,6 +155,13 @@ class AdminHome extends StatelessWidget {
     final rescued = data.requests
         .where((r) => ['RESCUED', 'TRANSFERRED_SAFEZONE'].contains(r['status']))
         .length;
+    final latestRequests = [...data.requests]
+      ..sort((a, b) {
+        final aTime = DateTime.tryParse(valueOf(a, 'created_at'));
+        final bTime = DateTime.tryParse(valueOf(b, 'created_at'));
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
     return AppList(
       children: [
         PageTitle(
@@ -177,13 +184,13 @@ class AdminHome extends StatelessWidget {
             ),
             StatItem(
               'Đội sẵn sàng',
-              '${data.teams.where((t) => t['status'] == 'AVAILABLE').length}/${data.teams.length}',
+              '${data.availableTeams.length}/${data.teams.length}',
               Icons.groups,
               Palette.success,
             ),
             StatItem(
               'Cảnh báo',
-              '${data.warnings.where((w) => w['status'] == 'PUBLISHED').length}',
+              '${data.activeWarnings.length}',
               Icons.campaign,
               Palette.warning,
             ),
@@ -204,7 +211,7 @@ class AdminHome extends StatelessWidget {
           ],
         ),
         const SectionHeader(icon: Icons.sos, title: 'Yêu cầu mới nhất'),
-        ...data.requests.take(5).map((r) => RequestCard(request: r)),
+        ...latestRequests.take(5).map((r) => RequestCard(request: r)),
       ],
     );
   }
