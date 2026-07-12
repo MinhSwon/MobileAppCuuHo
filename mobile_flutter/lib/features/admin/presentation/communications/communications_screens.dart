@@ -58,3 +58,30 @@ class SmsLogsScreen extends StatelessWidget {
     );
   }
 }
+
+class CoastalWarningsScreen extends StatelessWidget {
+  const CoastalWarningsScreen({super.key, required this.data});
+  final AppData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final high = data.warnings
+        .where((w) => ['HIGH', 'EMERGENCY'].contains(w['level']))
+        .toList();
+    return AppList(
+      children: [
+        const PageTitle(
+          'Cảnh báo thiên tai & sự cố',
+          'Bản di động của mục cảnh báo ven biển và cảnh báo tổng hợp',
+        ),
+        AlertPanel(
+          title: 'Theo dõi nguy cơ cao',
+          message: '${high.length} cảnh báo mức cao hoặc khẩn cấp',
+          color: Palette.warning,
+          icon: Icons.anchor,
+        ),
+        ...data.warnings.map((w) => WarningCard(warning: w)),
+      ],
+    );
+  }
+}
