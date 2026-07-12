@@ -1,147 +1,35 @@
-# Rescue Management System
+# RescueVN Flutter Backend
 
-Ứng dụng di động quản lý cảnh báo và cứu hộ trong các tình huống khẩn cấp.
+Backend API for the Flutter mobile app. This keeps the current Express, Prisma and PostgreSQL backend so the Flutter app can call the same rescue APIs.
 
-## Mô tả dự án
-
-Rescue Management System là hệ thống hỗ trợ người dân gửi yêu cầu cứu hộ (SOS), nhận cảnh báo nguy hiểm và theo dõi quá trình xử lý cứu hộ theo thời gian thực.
-
-Hệ thống gồm ba nhóm người dùng:
-
-* Người dân
-* Đội cứu hộ
-* Quản trị viên
-
-## Tính năng chính
-
-### Người dân
-
-* Đăng ký và đăng nhập
-* Gửi yêu cầu SOS khẩn cấp
-* Chia sẻ vị trí GPS
-* Theo dõi trạng thái cứu hộ
-* Nhận cảnh báo theo khu vực
-* Xem hướng dẫn an toàn
-
-### Đội cứu hộ
-
-* Nhận nhiệm vụ cứu hộ
-* Xem vị trí nạn nhân trên bản đồ
-* Cập nhật trạng thái nhiệm vụ
-* Gửi báo cáo hiện trường
-* Chia sẻ vị trí thời gian thực
-
-### Quản trị viên
-
-* Quản lý người dùng
-* Quản lý yêu cầu cứu hộ
-* Phân công đội cứu hộ
-* Tạo cảnh báo khẩn cấp
-* Theo dõi bản đồ điều phối
-* Xem thống kê và báo cáo
-
-## Công nghệ sử dụng
-
-### Mobile
-
-* Flutter
-* Dart
-* Riverpod
-* Google Maps API
-* Firebase Cloud Messaging
-
-### Backend
-
-* Node.js
-* Express.js
-* Prisma ORM
-* PostgreSQL
-* Socket.IO
-* JWT Authentication
-
-## Kiến trúc hệ thống
-
-```text
-Flutter App
-      ↓
-REST API + Socket.IO
-      ↓
-Express Server
-      ↓
-Prisma ORM
-      ↓
-PostgreSQL
-```
-
-## Cấu trúc thư mục
-
-```text
-rescue-management-system/
-│
-├── mobile_app/
-├── backend/
-├── database/
-├── docs/
-└── README.md
-```
-
-## Cài đặt dự án
-
-### Clone repository
+## Run locally
 
 ```bash
-git clone <repository-url>
-cd rescue-management-system
-```
-
-### Mobile App
-
-```bash
-cd mobile_app
-flutter pub get
-flutter run
-```
-
-### Backend
-
-```bash
-cd backend
 npm install
-npm run dev
+npm run db:setup
+npm start
 ```
 
-## Biến môi trường
+Health check:
 
-Tạo file `.env` trong thư mục `backend`:
-
-```env
-DATABASE_URL=
-JWT_SECRET=
-PORT=3000
+```text
+http://localhost:5000/api/health
 ```
 
-## Database Migration
+Main API groups:
 
-```bash
-npx prisma migrate dev --name init
+- `POST /api/auth/login`
+- `GET /api/db`
+- rescue requests, alerts, safe zones, missions, teams and notifications endpoints in `server.js`
+
+## Environment
+
+Create `.env` from `.env.example` and set:
+
+```text
+DATABASE_URL=postgresql://user:password@host:5432/rescuevn_app?schema=public
+APP_PROJECT_CODE=RESCUEVN_APP
+PGSSL=true
+JWT_SECRET=replace-with-a-long-random-secret-at-least-32-characters
+CLIENT_ORIGINS=http://localhost,capacitor://localhost,ionic://localhost
 ```
-
-Khởi tạo Prisma Client:
-
-```bash
-npx prisma generate
-```
-
-Mở Prisma Studio:
-
-```bash
-npx prisma studio
-```
-
-## Trạng thái dự án
-
-Dự án hiện đang trong giai đoạn phát triển.
-
-## Giấy phép
-
-Dự án được phát triển phục vụ mục đích học tập và nghiên cứu.
