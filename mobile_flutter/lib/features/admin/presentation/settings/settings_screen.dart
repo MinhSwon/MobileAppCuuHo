@@ -78,6 +78,14 @@ class SettingsScreen extends StatelessWidget {
                 icon: const Icon(Icons.edit),
                 label: const Text('Chỉnh sửa hồ sơ & Đổi mật khẩu'),
               ),
+              if (onRefresh != null) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.sync),
+                  label: const Text('Đồng bộ lại hồ sơ'),
+                ),
+              ],
             ],
           ),
         ),
