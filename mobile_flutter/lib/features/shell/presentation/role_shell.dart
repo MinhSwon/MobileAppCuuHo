@@ -251,11 +251,9 @@ class _RoleShellState extends State<RoleShell> {
 
     return [
       CitizenHome(
-        api: widget.api,
         user: widget.user,
         profile: widget.profile,
         data: data,
-        onSelectTab: (index) => setState(() => tab = index),
       ),
       SOSScreen(
         api: widget.api,
