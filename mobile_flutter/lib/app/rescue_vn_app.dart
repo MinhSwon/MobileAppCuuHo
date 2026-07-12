@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:mobile_flutter/app/splash_screen.dart';
+import 'package:mobile_flutter/app/theme/app_theme.dart';
+import 'package:mobile_flutter/core/utils/data_helpers.dart';
 import 'package:mobile_flutter/data/api/api_client.dart';
+import 'package:mobile_flutter/data/storage/simple_session_store.dart';
 import 'package:mobile_flutter/features/auth/presentation/public_access_screen.dart';
 import 'package:mobile_flutter/features/shell/presentation/role_shell.dart';
-import 'package:mobile_flutter/core/utils/data_helpers.dart';
-import 'package:mobile_flutter/app/theme/palette.dart';
-import 'package:mobile_flutter/app/splash_screen.dart';
 
 class RescueVNApp extends StatefulWidget {
   const RescueVNApp({super.key});
@@ -18,11 +19,13 @@ class RescueVNApp extends StatefulWidget {
 
 class _RescueVNAppState extends State<RescueVNApp> with WidgetsBindingObserver {
   late final ApiClient api;
+  final settingsStore = SimpleSessionStore();
   Map<String, dynamic>? user;
   Map<String, dynamic>? profile;
   Map<String, dynamic> db = {};
   bool booting = true;
   bool syncing = false;
+  bool darkMode = false;
   Timer? refreshTimer;
 
   @override
@@ -45,13 +48,15 @@ class _RescueVNAppState extends State<RescueVNApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed && user != null) {
       refreshDb(silent: true);
       _configurePolling();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       refreshTimer?.cancel();
       refreshTimer = null;
     }
   }
 
   Future<void> _restore() async {
+    darkMode = await settingsStore.read(key: 'themeMode') == 'dark';
     await api.restoreToken();
     user = await api.readJson('currentUser');
     profile = await api.readJson('currentProfile');
@@ -68,7 +73,10 @@ class _RescueVNAppState extends State<RescueVNApp> with WidgetsBindingObserver {
     refreshTimer?.cancel();
     refreshTimer = null;
     if (user == null) return;
-    refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => refreshDb(silent: true));
+    refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => refreshDb(silent: true),
+    );
   }
 
   Future<void> refreshDb({bool silent = false}) async {
@@ -79,7 +87,9 @@ class _RescueVNAppState extends State<RescueVNApp> with WidgetsBindingObserver {
       if (mounted) setState(() => db = data);
     } catch (err) {
       if (!silent && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không đồng bộ được dữ liệu: $err')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không đồng bộ được dữ liệu: $err')),
+        );
       }
     } finally {
       if (mounted) setState(() => syncing = false);
@@ -105,7 +115,9 @@ class _RescueVNAppState extends State<RescueVNApp> with WidgetsBindingObserver {
   }
 
   Future<void> handleLogout() async {
+    final currentTheme = darkMode ? 'dark' : 'light';
     await api.logout();
+    await settingsStore.write(key: 'themeMode', value: currentTheme);
     refreshTimer?.cancel();
     refreshTimer = null;
     setState(() {
@@ -115,77 +127,42 @@ class _RescueVNAppState extends State<RescueVNApp> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> toggleTheme() async {
+    final next = !darkMode;
+    setState(() => darkMode = next);
+    await settingsStore.write(key: 'themeMode', value: next ? 'dark' : 'light');
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Cứu Hộ Việt Nam',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Palette.accent,
-          primary: Palette.accent,
-          error: Palette.danger,
-          surface: Palette.elevated,
-        ),
-        scaffoldBackgroundColor: Palette.bgBase,
-        fontFamily: 'Inter',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Palette.sidebar,
-          foregroundColor: Color(0xfffdf9f3),
-          elevation: 0,
-          centerTitle: false,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Palette.elevated,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Palette.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Palette.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Palette.accent, width: 1.4),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Palette.accent,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            minimumSize: const Size(44, 46),
-          ),
-        ),
-        cardTheme: CardThemeData(
-          color: Palette.elevated,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: const BorderSide(color: Palette.border),
-          ),
-        ),
-      ),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
       home: booting
           ? const SplashScreen()
           : user == null
-              ? PublicAccessScreen(
-                  api: api,
-                  db: db,
-                  onRefresh: refreshDb,
-                  onLogin: handleLogin,
-                  onRegister: handleRegister,
-                )
-              : RoleShell(
-                  api: api,
-                  user: user!,
-                  profile: profile,
-                  db: db,
-                  onRefresh: refreshDb,
-                  onLogout: handleLogout,
-                ),
+          ? PublicAccessScreen(
+              api: api,
+              db: db,
+              darkMode: darkMode,
+              onToggleTheme: toggleTheme,
+              onRefresh: refreshDb,
+              onLogin: handleLogin,
+              onRegister: handleRegister,
+            )
+          : RoleShell(
+              api: api,
+              user: user!,
+              profile: profile,
+              db: db,
+              darkMode: darkMode,
+              onToggleTheme: toggleTheme,
+              onRefresh: refreshDb,
+              onLogout: handleLogout,
+            ),
     );
   }
 }

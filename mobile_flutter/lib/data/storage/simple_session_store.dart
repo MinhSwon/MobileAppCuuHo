@@ -1,2 +1,17 @@
-export 'simple_session_store_io.dart'
-    if (dart.library.html) 'simple_session_store_web.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class SimpleSessionStore {
+  static const _storage = FlutterSecureStorage();
+
+  Future<String?> read({required String key}) async {
+    return _storage.read(key: key);
+  }
+
+  Future<void> write({required String key, required String value}) async {
+    await _storage.write(key: key, value: value);
+  }
+
+  Future<void> deleteAll() async {
+    await _storage.deleteAll();
+  }
+}
