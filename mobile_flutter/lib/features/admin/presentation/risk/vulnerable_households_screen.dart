@@ -145,7 +145,15 @@ class VulnerableHouseholdsScreen extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          valueOf(h, 'household_name'),
+                          valueOf(
+                            h,
+                            'household_name',
+                            fallback: valueOf(
+                              h,
+                              'full_name',
+                              fallback: 'Hộ ưu tiên',
+                            ),
+                          ),
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 16,
