@@ -123,10 +123,10 @@ class RescueRoutesScreen extends StatelessWidget {
                     'name': name.text.trim(),
                     'from_location': from.text.trim(),
                     'to_location': to.text.trim(),
-                    'distance_km': double.tryParse(distance.text),
+                    'distance_km': double.tryParse(distance.text.trim()),
                     'status': status,
-                    'latitude': double.tryParse(latCtrl.text),
-                    'longitude': double.tryParse(lngCtrl.text),
+                    'latitude': double.tryParse(latCtrl.text.trim()),
+                    'longitude': double.tryParse(lngCtrl.text.trim()),
                   });
                   await onChanged();
                   if (context.mounted) Navigator.pop(context);
@@ -497,13 +497,13 @@ class SafeZonesScreen extends StatelessWidget {
                   await api!.createSafeZone({
                     'name': name.text.trim(),
                     'address': address.text.trim(),
-                    'capacity': int.tryParse(capacity.text) ?? 0,
+                    'capacity': int.tryParse(capacity.text.trim()) ?? 0,
                     'current_people': 0,
                     'contact_person': contact.text.trim(),
                     'contact_phone': phone.text.trim(),
                     'status': status,
-                    'latitude': double.tryParse(latCtrl.text),
-                    'longitude': double.tryParse(lngCtrl.text),
+                    'latitude': double.tryParse(latCtrl.text.trim()),
+                    'longitude': double.tryParse(lngCtrl.text.trim()),
                   });
                   await onChanged!();
                   if (context.mounted) Navigator.pop(context);

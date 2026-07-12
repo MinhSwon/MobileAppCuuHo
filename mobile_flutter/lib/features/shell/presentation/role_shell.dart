@@ -100,6 +100,7 @@ class _RoleShellState extends State<RoleShell> {
         title: Text(items[tab].label),
         actions: [
           IconButton(
+            tooltip: 'Làm mới dữ liệu',
             onPressed: widget.onRefresh,
             icon: const Icon(Icons.refresh),
           ),
@@ -111,6 +112,7 @@ class _RoleShellState extends State<RoleShell> {
             icon: Icon(widget.darkMode ? Icons.light_mode : Icons.dark_mode),
           ),
           IconButton(
+            tooltip: 'Đăng xuất',
             onPressed: widget.onLogout,
             icon: const Icon(Icons.logout),
           ),

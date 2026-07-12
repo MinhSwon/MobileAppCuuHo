@@ -11,7 +11,9 @@ Future<Map<String, dynamic>?> pickRescueTeam(
     ..sort((a, b) {
       final aReady = valueOf(a, 'status') == 'AVAILABLE' ? 0 : 1;
       final bReady = valueOf(b, 'status') == 'AVAILABLE' ? 0 : 1;
-      return aReady.compareTo(bReady);
+      final readyCompare = aReady.compareTo(bReady);
+      if (readyCompare != 0) return readyCompare;
+      return valueOf(a, 'team_name').compareTo(valueOf(b, 'team_name'));
     });
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,

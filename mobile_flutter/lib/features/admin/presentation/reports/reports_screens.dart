@@ -31,20 +31,13 @@ class ReportsScreen extends StatelessWidget {
     int totalElderly = 0;
     int totalChildren = 0;
     int totalDisabled = 0;
-    for (final r in data.requests) {
-      if (![
-        'RESCUED',
-        'TRANSFERRED_SAFEZONE',
-        'CANCELLED',
-        'SPAM',
-      ].contains(r['status'])) {
-        totalElderly +=
-            int.tryParse(valueOf(r, 'elderly_count', fallback: '0')) ?? 0;
-        totalChildren +=
-            int.tryParse(valueOf(r, 'children_count', fallback: '0')) ?? 0;
-        totalDisabled +=
-            int.tryParse(valueOf(r, 'disabled_count', fallback: '0')) ?? 0;
-      }
+    for (final r in data.openRequests) {
+      totalElderly +=
+          int.tryParse(valueOf(r, 'elderly_count', fallback: '0')) ?? 0;
+      totalChildren +=
+          int.tryParse(valueOf(r, 'children_count', fallback: '0')) ?? 0;
+      totalDisabled +=
+          int.tryParse(valueOf(r, 'disabled_count', fallback: '0')) ?? 0;
     }
 
     return AppList(

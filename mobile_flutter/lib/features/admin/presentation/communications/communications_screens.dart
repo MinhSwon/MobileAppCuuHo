@@ -10,13 +10,21 @@ class SmsLogsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final smsLogs = [...data.sms]
+      ..sort((a, b) {
+        final aTime = DateTime.tryParse(valueOf(a, 'sent_at'));
+        final bTime = DateTime.tryParse(valueOf(b, 'sent_at'));
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+
     return AppList(
       children: [
         const PageTitle('SMS cảnh báo', 'Nhật ký tin nhắn đã gửi qua hệ thống'),
-        if (data.sms.isEmpty)
+        if (smsLogs.isEmpty)
           const EmptyCard(icon: Icons.sms, message: 'Chưa có SMS')
         else
-          ...data.sms.map(
+          ...smsLogs.map(
             (s) => CardBox(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,7 +73,7 @@ class CoastalWarningsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final high = data.warnings
+    final high = data.activeWarnings
         .where((w) => ['HIGH', 'EMERGENCY'].contains(w['level']))
         .toList();
     return AppList(

@@ -42,6 +42,7 @@ class _EditProfileScreenState extends State<EditProfileScreen>
   final confirmPwCtrl = TextEditingController();
   bool showOldPw = false;
   bool showNewPw = false;
+  bool showConfirmPw = false;
 
   bool saving = false;
   bool changingPw = false;
@@ -360,12 +361,21 @@ class _EditProfileScreenState extends State<EditProfileScreen>
                     const SizedBox(height: 12),
                     TextField(
                       controller: confirmPwCtrl,
-                      obscureText: true,
+                      obscureText: !showConfirmPw,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => changingPw ? null : changePassword(),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Xác nhận mật khẩu mới',
-                        prefixIcon: Icon(Icons.lock_clock),
+                        prefixIcon: const Icon(Icons.lock_clock),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            showConfirmPw
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () =>
+                              setState(() => showConfirmPw = !showConfirmPw),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

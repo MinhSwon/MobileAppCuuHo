@@ -4,6 +4,7 @@ export 'presentation/infrastructure/infrastructure_screens.dart';
 export 'presentation/overview/admin_overview_screen.dart';
 export 'presentation/reports/reports_screens.dart';
 export 'presentation/risk/vulnerable_households_screen.dart';
+export 'presentation/settings/edit_profile_screen.dart';
 export 'presentation/settings/settings_screen.dart';
 export 'presentation/shared/admin_dialogs.dart';
 export 'presentation/warnings/admin_warnings_screen.dart';

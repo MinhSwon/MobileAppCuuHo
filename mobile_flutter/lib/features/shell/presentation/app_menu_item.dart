@@ -13,6 +13,7 @@ class AppMenuItem {
     if (label.contains('Nhiệm vụ')) return 'Nhiệm vụ';
     if (label.contains('Điểm')) return 'Sơ tán';
     if (label.contains('Tổng')) return 'Tổng quan';
-    return label.split(' ').first;
+    final words = label.trim().split(' ');
+    return words.first.isEmpty ? label : words.first;
   }
 }

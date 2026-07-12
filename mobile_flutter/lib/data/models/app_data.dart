@@ -53,14 +53,30 @@ class AppData {
       firstListOf(raw, ['citizenProfiles', 'profiles']);
   List<Map<String, dynamic>> get requests =>
       firstListOf(raw, ['rescueRequests', 'requests']);
+  List<Map<String, dynamic>> get openRequests => requests
+      .where(
+        (r) => ![
+          'RESCUED',
+          'TRANSFERRED_SAFEZONE',
+          'CANCELLED',
+          'SPAM',
+          'FALSE_ALARM',
+        ].contains(valueOf(r, 'status')),
+      )
+      .toList();
   List<Map<String, dynamic>> get missions =>
       firstListOf(raw, ['rescueMissions', 'missions']);
   List<Map<String, dynamic>> get missionStatusLogs =>
       firstListOf(raw, ['missionStatusLogs', 'missionLogs']);
   List<Map<String, dynamic>> get teams =>
       firstListOf(raw, ['rescueTeams', 'teams']);
+  List<Map<String, dynamic>> get availableTeams =>
+      teams.where((t) => valueOf(t, 'status') == 'AVAILABLE').toList();
   List<Map<String, dynamic>> get warnings =>
       firstListOf(raw, ['floodWarnings', 'alerts', 'warnings']);
+  List<Map<String, dynamic>> get activeWarnings => warnings
+      .where((w) => valueOf(w, 'status', fallback: 'PUBLISHED') == 'PUBLISHED')
+      .toList();
   List<Map<String, dynamic>> get safeZones => firstListOf(raw, ['safeZones']);
   List<Map<String, dynamic>> get routes =>
       firstListOf(raw, ['rescueRoutes', 'routes']);
