@@ -85,3 +85,58 @@ class CoastalWarningsScreen extends StatelessWidget {
     );
   }
 }
+
+class SubscribersScreen extends StatelessWidget {
+  const SubscribersScreen({super.key, required this.data});
+  final AppData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final citizens = data.users.where((u) => u['role'] == 'CITIZEN').toList();
+    return AppList(
+      children: [
+        const PageTitle(
+          'Người dân',
+          'Danh sách tài khoản và hồ sơ theo khu vực',
+        ),
+        ...citizens.map((u) {
+          final profile = data.profiles
+              .where((p) => valueOf(p, 'user_id') == valueOf(u, 'id'))
+              .firstOrNull;
+          return CardBox(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.person, color: Palette.accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        valueOf(u, 'full_name'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    StatusBadge(
+                      status: valueOf(u, 'status', fallback: 'ACTIVE'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                InfoRow('Điện thoại', valueOf(u, 'phone')),
+                InfoRow('Email', valueOf(u, 'email')),
+                InfoRow(
+                  'Địa chỉ',
+                  valueOf(profile, 'address_detail', fallback: '-'),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
