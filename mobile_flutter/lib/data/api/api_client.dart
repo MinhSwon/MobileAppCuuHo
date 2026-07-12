@@ -2,9 +2,10 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import 'package:mobile_flutter/core/config/api_config.dart';
 import 'package:mobile_flutter/core/utils/data_helpers.dart';
 import 'package:mobile_flutter/data/storage/simple_session_store.dart';
+
+import 'package:mobile_flutter/core/config/api_config.dart';
 
 class ApiClient {
   final _storage = SimpleSessionStore();
@@ -14,29 +15,6 @@ class ApiClient {
       connectTimeout: const Duration(seconds: 15),
     ),
   );
-
-  Exception _friendlyError(Object error, {required String fallbackMessage}) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map) {
-        final message =
-            data['message']?.toString() ?? data['error']?.toString();
-        if (message != null && message.isNotEmpty) {
-          return Exception(message);
-        }
-      }
-
-      if (error.type == DioExceptionType.connectionError ||
-          error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.receiveTimeout ||
-          error.type == DioExceptionType.sendTimeout) {
-        return Exception('Khong the ket noi toi may chu');
-      }
-    }
-
-    if (error is Exception) return error;
-    return Exception(fallbackMessage);
-  }
 
   Future<void> restoreToken() async {
     final token = await _storage.read(key: 'authToken');
@@ -51,70 +29,193 @@ class ApiClient {
     return mapOf(jsonDecode(raw));
   }
 
+  List<String> get _apiBaseUrlCandidates {
+    final candidates = <String>[];
+
+    void addCandidate(String url) {
+      if (url.isNotEmpty && !candidates.contains(url)) candidates.add(url);
+    }
+
+    addCandidate(dio.options.baseUrl);
+    addCandidate(apiBaseUrl);
+    if (useLocalApiFallbacks) {
+      for (final fallbackUrl in localApiFallbackBaseUrls) {
+        addCandidate(fallbackUrl);
+      }
+    }
+
+    return candidates;
+  }
+
+  Future<Response<dynamic>> _postWithFallback(
+    String path, {
+    Object? data,
+  }) async {
+    final originalBaseUrl = dio.options.baseUrl;
+    Object? lastError;
+    DioException? preferredError;
+
+    for (final baseUrl in _apiBaseUrlCandidates) {
+      try {
+        dio.options.baseUrl = baseUrl;
+        return await dio.post(path, data: data);
+      } catch (err) {
+        lastError = err;
+        if (err is DioException && err.response?.statusCode != null) {
+          preferredError ??= err;
+        }
+      }
+    }
+
+    dio.options.baseUrl = originalBaseUrl;
+    throw preferredError ?? lastError ?? Exception('Không gọi được API');
+  }
+
+  Future<Response<dynamic>> _getWithFallback(String path) async {
+    final originalBaseUrl = dio.options.baseUrl;
+    Object? lastError;
+    DioException? preferredError;
+
+    for (final baseUrl in _apiBaseUrlCandidates) {
+      try {
+        dio.options.baseUrl = baseUrl;
+        return await dio.get(path);
+      } catch (err) {
+        lastError = err;
+        if (err is DioException && err.response?.statusCode != null) {
+          preferredError ??= err;
+        }
+      }
+    }
+
+    dio.options.baseUrl = originalBaseUrl;
+    throw preferredError ?? lastError ?? Exception('Không gọi được API');
+  }
+
+  Never _throwApiMessage(Object err, String fallback) {
+    if (err is DioException) {
+      final responseData = mapOf(err.response?.data);
+      final message = valueOf(responseData, 'message');
+      throw Exception(message.isNotEmpty ? message : fallback);
+    }
+    throw err;
+  }
+
   Future<Map<String, dynamic>> login(
     String emailOrPhone,
     String password,
   ) async {
+    late final Response<dynamic> res;
     try {
-      final res = await dio.post(
+      res = await _postWithFallback(
         '/api/auth/login',
         data: {'emailOrPhone': emailOrPhone, 'password': password},
       );
-      final data = mapOf(res.data);
-      if (data['success'] != true) {
-        throw Exception(data['message'] ?? 'Dang nhap khong thanh cong');
-      }
-
-      final token = data['token']?.toString();
-      if (token != null) {
-        dio.options.headers['Authorization'] = 'Bearer $token';
-        await _storage.write(key: 'authToken', value: token);
-      }
-      await _storage.write(key: 'currentUser', value: jsonEncode(data['user']));
-      if (data['profile'] != null) {
-        await _storage.write(
-          key: 'currentProfile',
-          value: jsonEncode(data['profile']),
-        );
-      }
-      return data;
-    } catch (error) {
-      throw _friendlyError(
-        error,
-        fallbackMessage: 'Dang nhap khong thanh cong',
+    } catch (err) {
+      _throwApiMessage(err, 'Đăng nhập không thành công');
+    }
+    final data = mapOf(res.data);
+    if (data['success'] != true) {
+      throw Exception(data['message'] ?? 'Đăng nhập không thành công');
+    }
+    final token = data['token']?.toString();
+    if (token != null) {
+      dio.options.headers['Authorization'] = 'Bearer $token';
+      await _storage.write(key: 'authToken', value: token);
+    }
+    await _storage.write(key: 'currentUser', value: jsonEncode(data['user']));
+    if (data['profile'] != null) {
+      await _storage.write(
+        key: 'currentProfile',
+        value: jsonEncode(data['profile']),
       );
     }
+    return data;
   }
 
   Future<Map<String, dynamic>> register(Map<String, dynamic> payload) async {
+    late final Response<dynamic> res;
     try {
-      final res = await dio.post('/api/auth/register', data: payload);
-      final data = mapOf(res.data);
-      if (data['success'] != true) {
-        throw Exception(data['message'] ?? 'Dang ky khong thanh cong');
-      }
+      res = await _postWithFallback('/api/auth/register', data: payload);
+    } catch (err) {
+      _throwApiMessage(err, 'Đăng ký không thành công');
+    }
+    final data = mapOf(res.data);
+    if (data['success'] != true) {
+      throw Exception(data['message'] ?? 'Đăng ký không thành công');
+    }
+    final token = data['token']?.toString();
+    if (token != null) {
+      dio.options.headers['Authorization'] = 'Bearer $token';
+      await _storage.write(key: 'authToken', value: token);
+    }
+    await _storage.write(key: 'currentUser', value: jsonEncode(data['user']));
+    if (data['profile'] != null) {
+      await _storage.write(
+        key: 'currentProfile',
+        value: jsonEncode(data['profile']),
+      );
+    }
+    return data;
+  }
 
-      final token = data['token']?.toString();
-      if (token != null) {
-        dio.options.headers['Authorization'] = 'Bearer $token';
-        await _storage.write(key: 'authToken', value: token);
-      }
-      await _storage.write(key: 'currentUser', value: jsonEncode(data['user']));
-      if (data['profile'] != null) {
-        await _storage.write(
-          key: 'currentProfile',
-          value: jsonEncode(data['profile']),
-        );
-      }
-      return data;
-    } catch (error) {
-      throw _friendlyError(error, fallbackMessage: 'Dang ky khong thanh cong');
+  Future<Map<String, dynamic>> sendRegisterOtp(String phone) async {
+    try {
+      final res = await _postWithFallback(
+        '/api/auth/otp/send',
+        data: {'phone': phone},
+      );
+      return mapOf(res.data);
+    } catch (err) {
+      _throwApiMessage(err, 'Không gửi được mã OTP');
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyRegisterOtp(
+    String phone,
+    String otp,
+  ) async {
+    try {
+      final res = await _postWithFallback(
+        '/api/auth/otp/verify',
+        data: {'phone': phone, 'otp': otp},
+      );
+      return mapOf(res.data);
+    } catch (err) {
+      _throwApiMessage(err, 'Không xác thực được OTP');
+    }
+  }
+
+  Future<Map<String, dynamic>> sendAiChat(
+    List<Map<String, String>> messages,
+  ) async {
+    try {
+      final res = await _postWithFallback(
+        '/api/ai/chat',
+        data: {'messages': messages},
+      );
+      return mapOf(res.data);
+    } catch (err) {
+      _throwApiMessage(err, 'Chatbot AI đang tạm thời không khả dụng');
     }
   }
 
   Future<Map<String, dynamic>> fetchDb() async {
-    final res = await dio.get('/api/db');
-    return mapOf(res.data);
+    final originalBaseUrl = dio.options.baseUrl;
+
+    Object? lastError;
+    for (final baseUrl in _apiBaseUrlCandidates) {
+      try {
+        dio.options.baseUrl = baseUrl;
+        final res = await dio.get('/api/db');
+        return mapOf(res.data);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    dio.options.baseUrl = originalBaseUrl;
+    throw lastError ?? Exception('Không đồng bộ được dữ liệu');
   }
 
   Future<Map<String, dynamic>> fetchReadiness() async {
@@ -135,7 +236,43 @@ class ApiClient {
   }
 
   Future<void> createRescueRequest(Map<String, dynamic> data) async {
-    await dio.post('/api/rescue-requests', data: data);
+    try {
+      await _postWithFallback('/api/rescue-requests', data: data);
+    } catch (err) {
+      _throwApiMessage(err, 'Không gửi được yêu cầu cứu hộ');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchChatMessages(String requestId) async {
+    try {
+      final res = await _getWithFallback(
+        '/api/rescue-requests/$requestId/messages',
+      );
+      return listOf(res.data);
+    } catch (err) {
+      _throwApiMessage(
+        err,
+        'Không tải được tin nhắn. Hãy khởi động lại backend và mở lại app.',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> sendChatMessage(
+    String requestId,
+    String message,
+  ) async {
+    try {
+      final res = await _postWithFallback(
+        '/api/rescue-requests/$requestId/messages',
+        data: {'message': message},
+      );
+      return mapOf(res.data);
+    } catch (err) {
+      _throwApiMessage(
+        err,
+        'Không gửi được tin nhắn. Hãy khởi động lại backend và mở lại app.',
+      );
+    }
   }
 
   Future<void> updateMissionStatus(
@@ -152,7 +289,7 @@ class ApiClient {
         'extraData': extraData,
         'changedByType': 'RESCUE_TEAM',
         'changedByUser': user,
-        'note': note ?? 'Cap nhat tu ung dung Flutter',
+        'note': note ?? 'Cập nhật từ ứng dụng Flutter',
       },
     );
   }
@@ -168,6 +305,20 @@ class ApiClient {
         'teamId': team['id'],
         'teamName': valueOf(team, 'team_name'),
         'currentUser': user,
+      },
+    );
+  }
+
+  Future<void> updateRequestTriage(
+    String requestId,
+    String status, {
+    String? note,
+  }) async {
+    await dio.post(
+      '/api/rescue-requests/$requestId/triage',
+      data: {
+        'status': status,
+        if (note != null && note.isNotEmpty) 'note': note,
       },
     );
   }
@@ -229,6 +380,60 @@ class ApiClient {
     Map<String, dynamic> data,
   ) async {
     await dio.put('/api/vulnerable-households/$id', data: data);
+  }
+
+  Future<Map<String, dynamic>> updateProfile(
+    String userId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final response = await _postWithFallback(
+        '/api/users/$userId/profile',
+        data: data,
+      );
+      final result = mapOf(response.data);
+      if (result['user'] != null) {
+        await _storage.write(
+          key: 'currentUser',
+          value: jsonEncode(result['user']),
+        );
+      }
+      if (result['profile'] != null) {
+        await _storage.write(
+          key: 'currentProfile',
+          value: jsonEncode(result['profile']),
+        );
+      }
+      return result;
+    } catch (err) {
+      _throwApiMessage(err, 'Không cập nhật được hồ sơ');
+    }
+  }
+
+  Future<void> updatePassword(
+    String userId,
+    String oldPassword,
+    String newPassword,
+  ) async {
+    try {
+      await _postWithFallback(
+        '/api/users/$userId/change-password',
+        data: {'oldPassword': oldPassword, 'newPassword': newPassword},
+      );
+    } catch (err) {
+      _throwApiMessage(err, 'Không đổi được mật khẩu');
+    }
+  }
+
+  Future<void> updateWarningContent(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      await dio.put('/api/warnings/$id', data: data);
+    } catch (err) {
+      _throwApiMessage(err, 'Không cập nhật được cảnh báo');
+    }
   }
 
   Future<void> logout() async {
