@@ -23,7 +23,10 @@ class CardBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(margin: EdgeInsets.zero, child: Padding(padding: const EdgeInsets.all(14), child: child));
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(padding: const EdgeInsets.all(14), child: child),
+    );
   }
 }
 
@@ -34,12 +37,19 @@ class PageTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Palette.text)),
+        Text(
+          title,
+          style: textTheme.titleLarge?.copyWith(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         const SizedBox(height: 3),
-        Text(subtitle, style: const TextStyle(color: Palette.muted)),
+        Text(subtitle, style: TextStyle(color: Theme.of(context).hintColor)),
       ],
     );
   }
@@ -52,7 +62,16 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [Icon(icon, color: Palette.accent, size: 18), const SizedBox(width: 8), Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))]);
+    return Row(
+      children: [
+        Icon(icon, color: Palette.accent, size: 18),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        ),
+      ],
+    );
   }
 }
 
@@ -60,11 +79,25 @@ class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key});
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text.toUpperCase(), style: const TextStyle(color: Palette.muted, fontSize: 11, letterSpacing: .9, fontWeight: FontWeight.w800));
+  Widget build(BuildContext context) => Text(
+    text.toUpperCase(),
+    style: TextStyle(
+      color: Theme.of(context).hintColor,
+      fontSize: 11,
+      letterSpacing: .9,
+      fontWeight: FontWeight.w800,
+    ),
+  );
 }
 
 class AlertPanel extends StatelessWidget {
-  const AlertPanel({super.key, required this.title, required this.message, required this.color, required this.icon});
+  const AlertPanel({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.color,
+    required this.icon,
+  });
   final String title;
   final String message;
   final Color color;
@@ -74,12 +107,29 @@ class AlertPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
         children: [
           Icon(icon, color: Colors.white),
           const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)), Text(message, style: const TextStyle(color: Colors.white))])),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(message, style: const TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
         ],
       ),
     );

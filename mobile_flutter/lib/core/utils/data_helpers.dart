@@ -4,7 +4,9 @@ import 'package:mobile_flutter/app/theme/palette.dart';
 
 Map<String, dynamic> mapOf(dynamic value) {
   if (value is Map<String, dynamic>) return value;
-  if (value is Map) return value.map((key, val) => MapEntry(key.toString(), val));
+  if (value is Map) {
+    return value.map((key, val) => MapEntry(key.toString(), val));
+  }
   return {};
 }
 
@@ -13,7 +15,11 @@ List<Map<String, dynamic>> listOf(dynamic value) {
   return [];
 }
 
-Map<String, dynamic>? firstWhere(List<Map<String, dynamic>> list, String key, dynamic value) {
+Map<String, dynamic>? firstWhere(
+  List<Map<String, dynamic>> list,
+  String key,
+  dynamic value,
+) {
   for (final item in list) {
     if (valueOf(item, key) == value?.toString()) return item;
   }
@@ -24,26 +30,84 @@ const Map<String, List<String>> _fieldAliases = {
   'id': ['id'],
   'full_name': ['full_name', 'fullName', 'name', 'display_name'],
   'user_id': ['user_id', 'userId'],
-  'created_by_user_id': ['created_by_user_id', 'createdByUserId', 'user_id', 'userId'],
+  'created_by_user_id': [
+    'created_by_user_id',
+    'createdByUserId',
+    'user_id',
+    'userId',
+  ],
   'area_id': ['area_id', 'areaId'],
   'area_name': ['area_name', 'areaName'],
   'old_name': ['old_name', 'displayName', 'name'],
   'address_detail': ['address_detail', 'addressDetail', 'address'],
-  'number_of_people': ['number_of_people', 'numberOfPeople', 'people_count', 'peopleCount'],
-  'emergency_level': ['emergency_level', 'emergencyLevel', 'level', 'severity', 'priority_level', 'priorityLevel'],
-  'team_name': ['team_name', 'teamName', 'assigned_team_name', 'assignedTeamName', 'name'],
+  'number_of_people': [
+    'number_of_people',
+    'numberOfPeople',
+    'people_count',
+    'peopleCount',
+  ],
+  'emergency_level': [
+    'emergency_level',
+    'emergencyLevel',
+    'level',
+    'severity',
+    'priority_level',
+    'priorityLevel',
+  ],
+  'team_name': [
+    'team_name',
+    'teamName',
+    'assigned_team_name',
+    'assignedTeamName',
+    'name',
+  ],
   'leader_user_id': ['leader_user_id', 'leader_id', 'leaderId'],
   'leader_id': ['leader_id', 'leader_user_id', 'leaderId'],
   'member_count': ['member_count', 'memberCount'],
-  'assigned_team_id': ['assigned_team_id', 'assignedTeamId', 'team_id', 'teamId', 'rescue_team_id'],
-  'rescue_team_id': ['rescue_team_id', 'team_id', 'teamId', 'assigned_team_id', 'assignedTeamId'],
+  'assigned_team_id': [
+    'assigned_team_id',
+    'assignedTeamId',
+    'team_id',
+    'teamId',
+    'rescue_team_id',
+  ],
+  'rescue_team_id': [
+    'rescue_team_id',
+    'team_id',
+    'teamId',
+    'assigned_team_id',
+    'assignedTeamId',
+  ],
   'victim_name': ['victim_name', 'full_name', 'fullName'],
   'victim_phone': ['victim_phone', 'phone'],
-  'victim_address': ['victim_address', 'address_detail', 'addressDetail', 'address'],
-  'victim_latitude': ['victim_latitude', 'latitude', 'latest_latitude', 'latestLatitude'],
-  'victim_longitude': ['victim_longitude', 'longitude', 'latest_longitude', 'latestLongitude'],
-  'current_rescuer_latitude': ['current_rescuer_latitude', 'latest_latitude', 'latestLatitude'],
-  'current_rescuer_longitude': ['current_rescuer_longitude', 'latest_longitude', 'latestLongitude'],
+  'victim_address': [
+    'victim_address',
+    'address_detail',
+    'addressDetail',
+    'address',
+  ],
+  'victim_latitude': [
+    'victim_latitude',
+    'latitude',
+    'latest_latitude',
+    'latestLatitude',
+  ],
+  'victim_longitude': [
+    'victim_longitude',
+    'longitude',
+    'latest_longitude',
+    'latestLongitude',
+  ],
+  'current_rescuer_latitude': [
+    'current_rescuer_latitude',
+    'latest_latitude',
+    'latestLatitude',
+  ],
+  'current_rescuer_longitude': [
+    'current_rescuer_longitude',
+    'latest_longitude',
+    'latestLongitude',
+  ],
   'mission_id': ['mission_id', 'missionId'],
   'old_status': ['old_status', 'oldStatus'],
   'new_status': ['new_status', 'newStatus'],
@@ -56,9 +120,24 @@ const Map<String, List<String>> _fieldAliases = {
   'distance_km': ['distance_km', 'distanceKm'],
   'damage_type': ['damage_type', 'damageType', 'title'],
   'reporter_name': ['reporter_name', 'reporterName'],
-  'household_name': ['household_name', 'householdName', 'full_name', 'head_name'],
-  'household_size': ['household_size', 'householdSize', 'people_count', 'peopleCount'],
-  'priority_level': ['priority_level', 'priorityLevel', 'emergency_level', 'level'],
+  'household_name': [
+    'household_name',
+    'householdName',
+    'full_name',
+    'head_name',
+  ],
+  'household_size': [
+    'household_size',
+    'householdSize',
+    'people_count',
+    'peopleCount',
+  ],
+  'priority_level': [
+    'priority_level',
+    'priorityLevel',
+    'emergency_level',
+    'level',
+  ],
   'created_at': ['created_at', 'createdAt'],
   'sent_at': ['sent_at', 'sentAt'],
 };
@@ -72,7 +151,10 @@ String valueOf(Map<String, dynamic>? map, String key, {String fallback = ''}) {
   return fallback;
 }
 
-List<Map<String, dynamic>> firstListOf(Map<String, dynamic> map, List<String> keys) {
+List<Map<String, dynamic>> firstListOf(
+  Map<String, dynamic> map,
+  List<String> keys,
+) {
   for (final key in keys) {
     final list = listOf(map[key]);
     if (list.isNotEmpty) return list;
@@ -89,6 +171,12 @@ String formatDate(String raw) {
 
 String statusLabel(String status) {
   const labels = {
+    'VERIFYING': 'Đang xác minh',
+    'VERIFIED': 'Đã xác minh',
+    'SUSPICIOUS': 'Nghi ngờ',
+    'SPAM': 'Tin rác',
+    'DUPLICATE': 'Trùng lặp',
+    'FALSE_ALARM': 'Báo động giả',
     'PENDING': 'Chờ tiếp nhận',
     'CREATED': 'Đã tạo',
     'DISPATCHED': 'Đã điều phối',
@@ -121,13 +209,31 @@ String statusLabel(String status) {
 }
 
 String levelLabel(String level) {
-  const labels = {'LOW': 'Thấp', 'MEDIUM': 'Trung bình', 'HIGH': 'Cao', 'EMERGENCY': 'Khẩn cấp'};
+  const labels = {
+    'LOW': 'Thấp',
+    'MEDIUM': 'Trung bình',
+    'HIGH': 'Cao',
+    'EMERGENCY': 'Khẩn cấp',
+  };
   return labels[level] ?? level;
 }
 
 Color statusColor(String status) {
-  if (['RESCUED', 'TRANSFERRED_SAFEZONE', 'COMPLETED', 'AVAILABLE', 'PUBLISHED'].contains(status)) return Palette.success;
-  if (['PENDING', 'UNREACHABLE', 'CANCELLED', 'EMERGENCY'].contains(status)) return Palette.danger;
+  if (['VERIFIED'].contains(status)) return Palette.success;
+  if (['SPAM', 'FALSE_ALARM'].contains(status)) return Palette.danger;
+  if (['VERIFYING', 'SUSPICIOUS'].contains(status)) return Palette.warning;
+  if ([
+    'RESCUED',
+    'TRANSFERRED_SAFEZONE',
+    'COMPLETED',
+    'AVAILABLE',
+    'PUBLISHED',
+  ].contains(status)) {
+    return Palette.success;
+  }
+  if (['PENDING', 'UNREACHABLE', 'CANCELLED', 'EMERGENCY'].contains(status)) {
+    return Palette.danger;
+  }
   if (['BUSY', 'NEED_SUPPORT', 'HIGH'].contains(status)) return Palette.warning;
   return Palette.accent;
 }

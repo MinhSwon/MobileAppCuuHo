@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:mobile_flutter/app/theme/palette.dart';
+import 'package:mobile_flutter/core/config/map_config.dart';
 import 'package:mobile_flutter/core/utils/data_helpers.dart';
 import 'package:mobile_flutter/core/widgets/cards.dart';
 import 'package:mobile_flutter/core/widgets/layout_widgets.dart';
@@ -10,7 +11,12 @@ import 'package:mobile_flutter/core/widgets/layout_widgets.dart';
 enum MapPointType { request, victim, team, safeZone, route }
 
 class MapPoint {
-  const MapPoint({required this.label, required this.type, this.details = const {}, this.position});
+  const MapPoint({
+    required this.label,
+    required this.type,
+    this.details = const {},
+    this.position,
+  });
 
   final String label;
   final MapPointType type;
@@ -34,7 +40,10 @@ class MapPoint {
     );
   }
 
-  static Map<String, String> _detailsFor(Map<String, dynamic> map, MapPointType type) {
+  static Map<String, String> _detailsFor(
+    Map<String, dynamic> map,
+    MapPointType type,
+  ) {
     final pairs = <String, String>{};
     void add(String label, String key, {String fallback = ''}) {
       final value = valueOf(map, key, fallback: fallback);
@@ -109,7 +118,12 @@ class MapPoint {
 }
 
 class RescueMap extends StatefulWidget {
-  const RescueMap({super.key, required this.title, required this.points, this.compact = false});
+  const RescueMap({
+    super.key,
+    required this.title,
+    required this.points,
+    this.compact = false,
+  });
 
   final String title;
   final List<MapPoint> points;
@@ -120,11 +134,14 @@ class RescueMap extends StatefulWidget {
 }
 
 class _RescueMapState extends State<RescueMap> {
+  final mapController = MapController();
   MapPoint? selectedPoint;
 
   @override
   Widget build(BuildContext context) {
-    final validPoints = widget.points.where((point) => point.position != null).toList();
+    final validPoints = widget.points
+        .where((point) => point.position != null)
+        .toList();
     if (validPoints.isEmpty) {
       return CardBox(
         child: Column(
@@ -132,14 +149,19 @@ class _RescueMapState extends State<RescueMap> {
           children: [
             SectionHeader(icon: Icons.map, title: widget.title),
             const SizedBox(height: 10),
-            const Text('Chưa có dữ liệu tọa độ để hiển thị bản đồ.', style: TextStyle(color: Palette.muted)),
+            const Text(
+              'Chưa có dữ liệu tọa độ để hiển thị bản đồ.',
+              style: TextStyle(color: Palette.muted),
+            ),
           ],
         ),
       );
     }
 
-    final center = _centerOf(validPoints);
-    selectedPoint ??= validPoints.first;
+    final selected = _selectedOrPrimary(validPoints);
+    final focusPoints = _focusPoints(validPoints);
+    final center = _centerOf(focusPoints);
+    final initialZoom = focusPoints.length == 1 ? 13.5 : 8.5;
     return CardBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,26 +173,28 @@ class _RescueMapState extends State<RescueMap> {
             child: SizedBox(
               height: widget.compact ? 190 : 280,
               child: FlutterMap(
+                key: ValueKey(_pointsSignature(validPoints)),
+                mapController: mapController,
                 options: MapOptions(
                   initialCenter: center,
-                  initialZoom: validPoints.length == 1 ? 12 : 5.5,
+                  initialZoom: initialZoom,
                   minZoom: 4,
                   maxZoom: 18,
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.mobile_flutter',
+                    urlTemplate: mapTileUrl,
+                    userAgentPackageName: mapUserAgent,
                   ),
                   MarkerLayer(
                     markers: validPoints.map((point) {
-                      final selected = selectedPoint == point;
+                      final isSelected = _samePoint(selected, point);
                       return Marker(
                         point: point.position!,
-                        width: selected ? 54 : 44,
-                        height: selected ? 54 : 44,
+                        width: isSelected ? 54 : 44,
+                        height: isSelected ? 54 : 44,
                         child: GestureDetector(
-                          onTap: () => setState(() => selectedPoint = point),
+                          onTap: () => _focusOn(point),
                           child: Tooltip(
                             message: '${point.typeLabel}: ${point.label}',
                             child: AnimatedContainer(
@@ -178,16 +202,25 @@ class _RescueMapState extends State<RescueMap> {
                               decoration: BoxDecoration(
                                 color: point.color,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: selected ? 4 : 3),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: isSelected ? 4 : 3,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: selected ? point.color.withValues(alpha: .45) : const Color(0x33000000),
-                                    blurRadius: selected ? 16 : 8,
+                                    color: isSelected
+                                        ? point.color.withValues(alpha: .45)
+                                        : const Color(0x33000000),
+                                    blurRadius: isSelected ? 16 : 8,
                                     offset: const Offset(0, 3),
                                   ),
                                 ],
                               ),
-                              child: Icon(point.icon, color: Colors.white, size: selected ? 24 : 20),
+                              child: Icon(
+                                point.icon,
+                                color: Colors.white,
+                                size: isSelected ? 24 : 20,
+                              ),
                             ),
                           ),
                         ),
@@ -199,9 +232,11 @@ class _RescueMapState extends State<RescueMap> {
             ),
           ),
           const SizedBox(height: 10),
-          MapInfoPanel(point: selectedPoint ?? validPoints.first),
+          MapInfoPanel(point: selected),
           const SizedBox(height: 10),
-          MapLegend(types: validPoints.map((point) => point.type).toSet().toList()),
+          MapLegend(
+            types: validPoints.map((point) => point.type).toSet().toList(),
+          ),
           if (!widget.compact) ...[
             const SizedBox(height: 10),
             Wrap(
@@ -213,7 +248,7 @@ class _RescueMapState extends State<RescueMap> {
                   label: Text(point.label),
                   backgroundColor: point.color.withValues(alpha: .12),
                   side: BorderSide(color: point.color.withValues(alpha: .18)),
-                  onPressed: () => setState(() => selectedPoint = point),
+                  onPressed: () => _focusOn(point),
                 );
               }).toList(),
             ),
@@ -224,9 +259,61 @@ class _RescueMapState extends State<RescueMap> {
   }
 
   LatLng _centerOf(List<MapPoint> points) {
-    final lat = points.map((point) => point.position!.latitude).reduce((a, b) => a + b) / points.length;
-    final lng = points.map((point) => point.position!.longitude).reduce((a, b) => a + b) / points.length;
+    final lat =
+        points
+            .map((point) => point.position!.latitude)
+            .reduce((a, b) => a + b) /
+        points.length;
+    final lng =
+        points
+            .map((point) => point.position!.longitude)
+            .reduce((a, b) => a + b) /
+        points.length;
     return LatLng(lat, lng);
+  }
+
+  void _focusOn(MapPoint point) {
+    final position = point.position;
+    if (position == null) return;
+    setState(() => selectedPoint = point);
+    mapController.move(position, 15);
+  }
+
+  List<MapPoint> _focusPoints(List<MapPoint> points) {
+    final emergencyPoints = points
+        .where(
+          (point) =>
+              [MapPointType.request, MapPointType.victim].contains(point.type),
+        )
+        .toList();
+    return emergencyPoints.isEmpty ? points : emergencyPoints;
+  }
+
+  MapPoint _selectedOrPrimary(List<MapPoint> points) {
+    final selected = selectedPoint;
+    if (selected != null) {
+      for (final point in points) {
+        if (_samePoint(selected, point)) return point;
+      }
+    }
+    final focusPoints = _focusPoints(points);
+    return focusPoints.first;
+  }
+
+  bool _samePoint(MapPoint a, MapPoint b) {
+    return a.type == b.type &&
+        a.label == b.label &&
+        a.position?.latitude == b.position?.latitude &&
+        a.position?.longitude == b.position?.longitude;
+  }
+
+  String _pointsSignature(List<MapPoint> points) {
+    return points
+        .map(
+          (point) =>
+              '${point.type.name}:${point.label}:${point.position!.latitude.toStringAsFixed(6)},${point.position!.longitude.toStringAsFixed(6)}',
+        )
+        .join('|');
   }
 }
 
@@ -252,8 +339,20 @@ class MapInfoPanel extends StatelessWidget {
             children: [
               Icon(point.icon, color: point.color, size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text(point.label, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16))),
-              BadgePill(label: point.typeLabel, bg: point.color.withValues(alpha: .14), fg: point.color),
+              Expanded(
+                child: Text(
+                  point.label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              BadgePill(
+                label: point.typeLabel,
+                bg: point.color.withValues(alpha: .14),
+                fg: point.color,
+              ),
             ],
           ),
           if (position != null) ...[
@@ -265,14 +364,33 @@ class MapInfoPanel extends StatelessWidget {
           ],
           if (point.details.isNotEmpty) ...[
             const SizedBox(height: 8),
-            ...point.details.entries.take(6).map(
+            ...point.details.entries
+                .take(6)
+                .map(
                   (entry) => Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(width: 86, child: Text(entry.key, style: const TextStyle(color: Palette.muted, fontSize: 12))),
-                        Expanded(child: Text(_displayValue(entry.value), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                        SizedBox(
+                          width: 86,
+                          child: Text(
+                            entry.key,
+                            style: const TextStyle(
+                              color: Palette.muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            _displayValue(entry.value),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -284,7 +402,17 @@ class MapInfoPanel extends StatelessWidget {
   }
 
   String _displayValue(String value) {
-    if (['PENDING', 'ASSIGNED', 'ACCEPTED', 'MOVING', 'RESCUING', 'RESCUED', 'AVAILABLE', 'BUSY', 'FULL'].contains(value)) {
+    if ([
+      'PENDING',
+      'ASSIGNED',
+      'ACCEPTED',
+      'MOVING',
+      'RESCUING',
+      'RESCUED',
+      'AVAILABLE',
+      'BUSY',
+      'FULL',
+    ].contains(value)) {
       return statusLabel(value);
     }
     if (['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY'].contains(value)) {
@@ -318,7 +446,14 @@ class MapLegend extends StatelessWidget {
             children: [
               Icon(entry.icon, color: entry.color, size: 16),
               const SizedBox(width: 5),
-              Text(entry.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.secondary)),
+              Text(
+                entry.label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Palette.secondary,
+                ),
+              ),
             ],
           ),
         );
@@ -332,12 +467,12 @@ class _LegendEntry {
   final MapPointType type;
 
   int get order => switch (type) {
-        MapPointType.request => 0,
-        MapPointType.victim => 1,
-        MapPointType.team => 2,
-        MapPointType.safeZone => 3,
-        MapPointType.route => 4,
-      };
+    MapPointType.request => 0,
+    MapPointType.victim => 1,
+    MapPointType.team => 2,
+    MapPointType.safeZone => 3,
+    MapPointType.route => 4,
+  };
 
   String get label => MapPoint(label: '', type: type).typeLabel;
   Color get color => MapPoint(label: '', type: type).color;
