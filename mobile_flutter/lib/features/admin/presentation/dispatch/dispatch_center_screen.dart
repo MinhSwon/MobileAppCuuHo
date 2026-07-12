@@ -51,9 +51,7 @@ class DispatchCenterScreen extends StatelessWidget {
             return bTime.compareTo(aTime);
           });
     // Chỉ show đội AVAILABLE khi phân công
-    final availableTeams = data.teams
-        .where((t) => valueOf(t, 'status') == 'AVAILABLE')
-        .toList();
+    final availableTeams = data.availableTeams;
     return AppList(
       children: [
         const PageTitle(
@@ -76,7 +74,7 @@ class DispatchCenterScreen extends StatelessWidget {
             ),
             StatItem(
               'Đội sẵn sàng',
-              '${data.teams.where((t) => t['status'] == 'AVAILABLE').length}',
+              '${availableTeams.length}',
               Icons.groups,
               Palette.success,
             ),
